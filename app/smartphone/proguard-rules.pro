@@ -315,3 +315,7 @@
 -dontwarn com.github.luben.zstd.util.Native
 -dontwarn com.sun.nio.file.SensitivityWatchEventModifier
 -dontwarn org.osgi.annotation.bundle.Export
+
+# Netty optional dependencies (not available on Android)
+-dontwarn io.netty.pkitesting.**
+-dontwarn jdk.jfr.**
