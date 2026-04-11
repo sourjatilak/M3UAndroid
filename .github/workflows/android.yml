@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "feature/searchfiltersort" ]
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -11,7 +11,7 @@ on:
       - 'fastlane/**'
       - '!.github/workflows/**'
   pull_request:
-    branches: [ "master" ]
+    branches: [ "feature/searchfiltersort" ]
   workflow_dispatch:
 
 concurrency:
