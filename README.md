@@ -25,6 +25,14 @@
 - 🚀 Lightweight & ad-free
 - 🇺🇳 Multi-language support
 
+## 🆕 What's New
+
+- 🔎 **Global Search** — A dedicated Search tab that searches across all playlists at once, with results grouped by categories, channels, live streams, and VOD
+- 🧠 **Smart Search Bar** — Context-aware search bar that adapts per screen: app header on For You, filter on Favorite & Playlist pages, and full search on the Search tab
+- 🗂️ **Category Navigation** — Tap a category from search results to jump directly into the matching playlist with that category auto-selected
+- 🛡️ **Player Memory Leak Fix** — Resolved a ComposeView leak in PlayerActivity during Picture-in-Picture re-attach cycles
+- 📭 **Empty State Messages** — Friendly prompts on For You and Favorite tabs when no playlists or favorites have been added yet
+
 ## 📸 Screenshots
 
 | Mobile Experience | TV Experience |
