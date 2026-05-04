@@ -15,6 +15,8 @@
 
 **M3UAndroid** is a feature-rich streaming media player built with modern Android development practices. Perfect for phones, tablets, and TV devices, delivering a seamless viewing experience powered by Jetpack Compose.
 
+> 🍴 This is a fork of [oxyroid/M3UAndroid](https://github.com/oxyroid/M3UAndroid) with additional feature enhancements.
+
 ## ✨ Key Features
 
 - 📺 Adaptive UI for mobile & TV
