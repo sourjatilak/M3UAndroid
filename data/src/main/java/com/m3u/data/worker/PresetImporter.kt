@@ -1,10 +1,10 @@
 package com.m3u.data.worker
 
 import android.content.Context
-import com.m3u.core.architecture.preferences.PreferencesKeys
-import com.m3u.core.architecture.preferences.Settings
-import com.m3u.core.architecture.preferences.PlaylistStrategy
-import com.m3u.core.architecture.preferences.get
+import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
+import com.m3u.core.foundation.architecture.preferences.Settings
+import com.m3u.core.foundation.architecture.preferences.PlaylistStrategy
+import com.m3u.core.foundation.architecture.preferences.get
 import com.m3u.data.api.OkhttpClient
 import com.m3u.data.database.dao.ChannelDao
 import com.m3u.data.database.dao.PlaylistDao

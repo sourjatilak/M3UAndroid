@@ -13,6 +13,7 @@
 - [Smartphone Architecture](#smartphone-architecture)
   - [Navigation](#smartphone-navigation)
   - [UI Design System](#smartphone-ui-design-system)
+  - [Home Screen Composition](#smartphone-home-screen-composition)
   - [Player](#smartphone-player)
 - [TV Architecture](#tv-architecture)
   - [Navigation](#tv-navigation)
@@ -157,20 +158,30 @@ MainActivity
   └── App (Composable)
         ├── NavigationSuiteScaffold (bottom/rail nav)
         │     ├── Foryou tab (app header banner, no search bar)
-        │     ├── Favorite tab (TopSearchBar as filter)
+        │     ├── Favorite tab (conditional — hidden until ≥1 favorite exists;
+        │     │     TopSearchBar as filter)
         │     ├── Search tab (TopSearchBar as global search)
-        │     ├── Extension tab
+        │     ├── Extension tab (filtered out of nav suite — deep-link only)
         │     └── Setting tab
         ├── Smart TopSearchBar (context-aware, hidden on Foryou)
         └── AppNavHost (NavHost)
               ├── rootGraph (tab destinations)
-              │     ├── Foryou → ForyouRoute (empty state when no playlists)
+              │     ├── Foryou → ForyouRoute
+              │     │     • List-only (single column, independent of ROW_COUNT preference)
+              │     │     • Each subscription renders as a PlaylistGroupCard wrapper
+              │     │     • Xtream rows (Live/VOD/Series) sharing the same server
+              │     │       credentials collapse into one card with vertical sub-chips
+              │     │     • Gear icon (top-right of each card) → playlist configuration
+              │     │     • Empty state when no playlists
               │     ├── Favorite → FavoriteRoute (search bar filters favorites)
               │     ├── Search → GlobalSearchRoute (cross-playlist search)
               │     ├── Extension → ExtensionRoute
               │     └── Setting → SettingRoute
               ├── playlistScreen → PlaylistScreen (search bar filters in-playlist, category navigation with auto-select)
               └── playlistConfigurationScreen → PlaylistConfigurationScreen
+                    • Includes bottom "Remove / Unsubscribe" destructive action with
+                      confirm dialog; for Xtream servers it removes all sibling rows
+                      (Live + VOD + Series) in one action
 
 PlayerActivity (separate Activity, ComposeView with DisposeOnViewTreeLifecycleDestroyed)
   └── ChannelRoute → ChannelScreen + ChannelMask
@@ -183,11 +194,12 @@ PlayerActivity (separate Activity, ComposeView with DisposeOnViewTreeLifecycleDe
 
 Key navigation patterns:
 - `NavigationSuiteScaffold` adapts between bottom bar (phone) and navigation rail (tablet)
+- Extension is always filtered out of the suite; Favorite is filtered out while `AppViewModel.hasFavorites` is false. If the user is on the Favorite route when the last favourite is removed, a `LaunchedEffect` in `AppImpl` redirects them to Foryou so they are never stranded on a hidden tab.
 - Smart search bar is context-aware: app header on Foryou, filter on Favorite/Playlist, global search on Search tab. Search text is saved/restored on tab switches.
 - `PlayerActivity` uses manual `ComposeView` with `DisposeOnViewTreeLifecycleDestroyed` strategy to prevent memory leaks during PiP window re-attach cycles
 - Category navigation: tapping a category in global search navigates to the playlist with that category auto-selected via `initialCategory` parameter
 - Deep linking via URL-encoded playlist URLs: `playlist_route/{url}?category={category}`
-- Playlist configuration: `playlist_configuration_route/{url}`
+- Playlist configuration: `playlist_configuration_route/{url}`. Opened from the home wrapper card's gear icon, or via the Setting → Playlists management screen.
 
 ### Smartphone UI Design System
 
@@ -256,12 +268,68 @@ ui/material/
 └── RecomposeHighlighter.kt — Debug recomposition visualizer
 ```
 
+### Smartphone Home Screen Composition
+
+The `Foryou` route groups raw `Playlist` rows into user-facing subscription cards. An Xtream subscription is physically stored as up to three `Playlist` rows in the database (one per `type`: `live`, `vod`, `series`) that share the same `(basicUrl, username, password)`; the home screen collapses them into a single `PlaylistGroupCard`.
+
+```
+foryou/components/
+├── PlaylistGroup.kt       — Grouping model + pure grouping function +
+│                            PlaylistGroupCard / SubPlaylistChip composables
+├── PlaylistGallery.kt     — LazyVerticalGrid wrapper (always 1 column on home)
+├── HeadlineBackground.kt  — Parallax headline background bound to scroll
+├── Loading.kt             — Shimmer placeholder
+└── recommend/
+    ├── RecommendGallery.kt
+    └── RecommendItem.kt
+```
+
+#### `PlaylistGroup` grouping rules
+
+| Source | Group key | Behavior |
+|--------|-----------|----------|
+| `DataSource.Xtream` | `xtream:${basicUrl}\|${username}\|${password}` (decoded via `XtreamInput.decodeFromPlaylistUrlOrNull`) | Live / VOD / Series rows sharing a server collapse into one group. Chips are forced into `Live → VOD → Series` display order regardless of DB insertion order. |
+| `DataSource.Xtream` (undecodable URL) | `xtream-raw:${url}` | Fallback single-entry group so a corrupted row still renders instead of being dropped. |
+| Other (`M3U`, `EPG`, …) | `url:${url}` | One group per row (M3U subscriptions are one row already). |
+
+The wrapper title is the playlist title with any trailing ` live` / ` vod` / ` series` suffix stripped (the subscription worker appends these per sub-type). If the source title is empty and the group is non-refreshable, `PlaylistGroupCard` substitutes `feat_foryou_imported_playlist_title` at render time.
+
+#### `PlaylistGroupCard` structure
+
+```
+OutlinedCard (wrapper, one per subscription)
+├── Row (header)
+│     ├── Text(title, titleMedium, weight = 1f)
+│     └── IconButton(Icons.Rounded.Settings)
+│           └── onConfigure(group.configurationTarget)
+│                 — For Xtream: prefers Live, falls back to VOD, then first entry.
+│                 — For M3U / other: the single entry.
+│                 — Opens PlaylistConfigurationScreen.
+└── Column (vertical chip list)
+      └── SubPlaylistChip × N (one per sub-playlist)
+            ├── Surface(surfaceVariant, rounded)
+            ├── Row(clickable)
+            │     — Tap only (no long-press). Opens the specific sub-playlist.
+            ├── Text(label) — "LIVE" / "VOD" / "SERIES" / "M3U" (untranslated)
+            └── Badge(count [+ progress indicator when subscribing/refreshing])
+```
+
+Key constraints:
+- **List-only rendering.** `ForyouScreen` always passes `rowCount = 1` to `PlaylistGallery`, independent of the shared `PreferencesKeys.ROW_COUNT` preference. The Favourite and Playlist screens continue to honor `ROW_COUNT` and its volume-key "god mode" toggle.
+- **No home-tab `MediaSheet`.** Long-press was the only trigger; removing long-press from chips also removed the need for the sheet. Unsubscribe lives on the configuration screen instead.
+- **Gear → unsubscribe.** Tapping the gear opens `PlaylistConfigurationScreen`. A destructive `OutlinedButton` at the bottom of the config screen (labeled "Unsubscribe server" for Xtream, "Remove playlist" otherwise) calls `PlaylistConfigurationViewModel.unsubscribe { onBackPressed() }` after an `AlertDialog` confirmation. For Xtream, `unsubscribe()` locates all sibling rows sharing the same server credentials via `playlistRepository.getAll()` and unsubscribes them together, so removing an Xtream server cleans up Live + VOD + Series + downloaded channels in one action.
+
 ### Smartphone Player
 
 The player screen (`PlayerActivity` → `ChannelScreen`) features:
 
 - Full-screen `Player` composable wrapping Media3's `PlayerView`
 - `ChannelMask` overlay with auto-hide behavior (tap to show/hide)
+- Mask center-row layout (left → right):
+  `SkipPrevious | Replay10 | Play/Pause | Forward10 | SkipNext`
+  - **Prev / Next** jump to the adjacent channel in the current playlist (`ChannelViewModel.adjacentChannels`). Hidden when no adjacent channel exists.
+  - **Replay10 / Forward10** seek by ±10 s (`SEEK_INCREMENT_MS = 10_000L`). Only visible when `isStaticAndSeekable` (seekable, non-dynamic — VOD) and the center button is in `Play` or `Pause` role. Hidden on live streams and during buffering/error. Forward is clamped to `duration`, rewind clamped to `0`.
+  - **Play/Pause** is the center `MaskCircleButton`. The `Replay` (refresh) role is now surfaced only when `PlayerState.playerError != null`, giving the user an explicit retry affordance after a failure. Idle / ended states no longer show the refresh icon — users recover via the bottom scrubber or by selecting a different channel. The `PreferencesKeys.ALWAYS_SHOW_REPLAY` preference still exists in `core` but has no effect on the smartphone mask after this change; the Settings toggle is left in place pending a follow-up.
 - Gesture areas:
   - Left vertical swipe → brightness control
   - Right vertical swipe → volume control
@@ -382,7 +450,7 @@ Data sources supported:
 
 | Repository | Key Operations |
 |------------|---------------|
-| `PlaylistRepository` | `m3uOrThrow()`, `xtreamOrThrow()` — subscribe to playlists; `refresh()` — re-fetch; `backupOrThrow()`/`restoreOrThrow()` — JSON backup to URI; `pinOrUnpinCategory()`, `hideOrUnhideCategory()` — category management; `readEpisodesOrThrow()` — load series episodes; `insertEpgAsPlaylist()` — add EPG source |
+| `PlaylistRepository` | `m3uOrThrow()`, `xtreamOrThrow()` — subscribe to playlists; `refresh()` — re-fetch; `backupOrThrow()`/`restoreOrThrow()` — JSON backup to URI; `pinOrUnpinCategory()`, `hideOrUnhideCategory()` — category management; `readEpisodesOrThrow()` — load series episodes; `insertEpgAsPlaylist()` — add EPG source; `unsubscribe(url)` — delete a single playlist row (the configuration screen composes multiple `unsubscribe` calls to remove an Xtream server's Live/VOD/Series siblings in one action, locating them via `getAll()` + `XtreamInput.decodeFromPlaylistUrlOrNull`) |
 | `ChannelRepository` | `pagingAllByPlaylistUrl()` — paged channel queries with category/sort/search; `favouriteOrUnfavourite()`, `hide()`, `reportPlayed()` — channel state; `observeAdjacentChannels()` — prev/next channel for navigation; `observeAllUnseenFavorites()` — recommendation engine input; `searchCategories()`, `searchByPrefix()`, `searchByPlaylistUrls()` — global search queries; `findPlaylistUrlForCategory()` — category-to-playlist resolution |
 | `ProgrammeRepository` | `pagingProgrammes()` — paged EPG data; `checkOrRefreshProgrammesOrThrow()` — EPG sync with cache; `getProgrammeCurrently()` — what's on now; `observeProgrammeRange()` — time range for EPG grid |
 | `MediaRepository` | `savePicture()` — download channel cover; `loadDrawable()` — load image as Drawable; `installApk()` — install extension APK from byte channel |
@@ -461,13 +529,43 @@ Supported protocols (via Media3 extensions):
 All ViewModels use `@HiltViewModel` with constructor injection and expose state via `StateFlow`/`Flow`:
 
 ```
+AppViewModel (smartphone app shell, activity-scoped)
+├── hasFavorites: StateFlow<Boolean>            — Drives conditional Favorite tab
+│                                                 visibility in NavigationSuiteScaffold;
+│                                                 channelRepository.observeAllFavorite()
+│                                                   .map { it.isNotEmpty() }
+│                                                   .distinctUntilChanged()
+│                                                   .stateIn(WhileSubscribed(5_000L), false)
+├── channels: Flow<PagingData<Channel>>         — Ambient global-search results
+├── searchQuery: MutableState<String>           — Current search input
+└── init { refreshProgrammes() }                — Trigger EPG auto-refresh on launch
+
 ForyouViewModel
 ├── playlists: StateFlow<Map<Playlist, Int>>          — All playlists with channel counts (empty state shown when map is empty)
 ├── subscribingPlaylistUrls: StateFlow<List<String>>  — Currently syncing playlists
 ├── refreshingEpgUrls: Flow<List<String>>             — Currently refreshing EPG sources
 ├── specs: StateFlow<List<Recommend.Spec>>            — Recommendation cards (recently played, unseen favorites)
 ├── episodes: StateFlow<Resource<List<Episode>>>      — Series episodes for selected series
+├── onUnsubscribePlaylist(url)                        — Per-URL unsubscribe (used by the
+│                                                       MediaSheet from Favourite/Playlist
+│                                                       screens; no longer called from Foryou
+│                                                       since long-press was removed there)
 └── query: MutableStateFlow<String>                   — Search query
+
+PlaylistConfigurationViewModel
+├── playlist: StateFlow<Playlist?>                    — Current playlist loaded from URL arg
+├── manifest: StateFlow<EpgManifest>                  — EPG enablement state per EPG playlist
+├── subscribingOrRefreshingWorkInfo: StateFlow<WorkInfo?>
+├── expired: StateFlow<LocalDateTime?>                — EPG window's last-known end time
+├── xtreamUserInfo: StateFlow<Resource<XtreamInfo.UserInfo>>
+├── onUpdatePlaylistTitle / UserAgent / EpgPlaylist / AutoRefreshProgrammes
+├── onSyncProgrammes / onCancelSyncProgrammes
+└── unsubscribe(onCompleted: () -> Unit)              — Removes the current playlist
+                                                        and, for Xtream, all sibling rows
+                                                        sharing the same server
+                                                        credentials. Invokes onCompleted
+                                                        after deletions finish so the Route
+                                                        can pop the back stack.
 
 PlaylistViewModel
 ├── playlist: StateFlow<Playlist?>                    — Current playlist metadata
@@ -532,9 +630,11 @@ Hilt modules are organized by layer:
 
 6. **Composition Locals** — `LocalHelper`, `LocalSpacing`, `LocalHazeState` provide ambient values through the Compose tree without explicit parameter passing.
 
-7. **WorkManager for background sync** — Playlist subscription, EPG refresh, backup/restore all run as `CoroutineWorker` instances with foreground notifications and cancel/retry support.
+7. **Conditional navigation destinations** — Tab visibility in `NavigationSuiteScaffold` is derived from live app state, not static configuration. `AppViewModel.hasFavorites` (a `StateFlow<Boolean>` backed by a Room query) removes the Favorite tab until the user has at least one favourited channel; a `LaunchedEffect` in `AppImpl` also redirects off the Favorite route when the flag flips to false so the user is never stranded on a hidden destination. Same pattern can be extended to other conditional tabs.
 
-8. **DataStore preferences** — Type-safe preferences via `PreferencesKeys` with composable `preferenceOf()` / `mutablePreferenceOf()` for direct Compose integration.
+8. **WorkManager for background sync** — Playlist subscription, EPG refresh, backup/restore all run as `CoroutineWorker` instances with foreground notifications and cancel/retry support.
+
+9. **DataStore preferences** — Type-safe preferences via `PreferencesKeys` with composable `preferenceOf()` / `mutablePreferenceOf()` for direct Compose integration.
 
 ---
 

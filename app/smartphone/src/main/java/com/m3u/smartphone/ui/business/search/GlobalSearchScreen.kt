@@ -38,7 +38,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.m3u.business.search.GlobalSearchState
 import com.m3u.business.search.GlobalSearchViewModel
-import com.m3u.core.util.basic.title
+import com.m3u.core.foundation.util.basic.title
 import com.m3u.data.database.model.Channel
 import com.m3u.data.service.MediaCommand
 import com.m3u.i18n.R.string
