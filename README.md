@@ -2,14 +2,10 @@
   <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Dark" />
    <source media="(prefers-color-scheme: light)" srcset="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Light" />
-   <img alt="Star History Chart" src="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1" />
-    
-    <source src="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Auto" alt="M3UAndroid" width="640" height="320" />
+   <source src="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Auto" alt="M3UAndroid" width="640" height="320" />
   </picture>
 </a>
 
-<a href="https://t.me/m3u_android"><img src="https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=flat&logo=telegram"></a>
-<a href="https://t.me/m3u_android_chat"><img src="https://img.shields.io/badge/Telegram-Discussion-2CA5E0?style=flat&logo=telegram"></a>
 ![GitHub release](https://img.shields.io/github/v/release/sourjatilak/M3UAndroid?color=blue)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-brightgreen?logo=android)
 
