@@ -9,12 +9,15 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
 import androidx.work.workDataOf
-import com.m3u.core.architecture.Publisher
-import com.m3u.core.architecture.preferences.PreferencesKeys
-import com.m3u.core.architecture.preferences.Settings
-import com.m3u.core.architecture.preferences.flowOf
-import com.m3u.core.architecture.preferences.set
-import com.m3u.core.util.basic.startWithHttpScheme
+import com.m3u.core.foundation.architecture.Publisher
+import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
+import com.m3u.core.foundation.architecture.preferences.Settings
+import com.m3u.core.foundation.architecture.preferences.flowOf
+import com.m3u.core.foundation.architecture.preferences.set
+import com.m3u.core.foundation.util.basic.startWithHttpScheme
+import com.m3u.data.api.TvApiDelegate
+import com.m3u.data.codec.CodecPackInstallResult
+import com.m3u.data.codec.CodecPackRepository
 import com.m3u.data.database.dao.ColorSchemeDao
 import com.m3u.data.database.example.ColorSchemeExample
 import com.m3u.data.database.model.Channel
@@ -24,6 +27,7 @@ import com.m3u.data.database.model.Playlist
 import com.m3u.data.parser.xtream.XtreamInput
 import com.m3u.data.repository.channel.ChannelRepository
 import com.m3u.data.repository.playlist.PlaylistRepository
+import com.m3u.data.repository.tv.TvRepository
 import com.m3u.data.service.Messager
 import com.m3u.data.worker.BackupWorker
 import com.m3u.data.worker.RestoreWorker
@@ -31,6 +35,7 @@ import com.m3u.data.worker.SubscriptionWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -49,10 +54,20 @@ class SettingViewModel @Inject constructor(
     private val workManager: WorkManager,
     private val settings: Settings,
     private val messager: Messager,
+    private val tvRepository: TvRepository,
+    private val tvApi: TvApiDelegate,
+    private val codecPackRepository: CodecPackRepository,
     publisher: Publisher,
     // FIXME: do not use dao in viewmodel
     private val colorSchemeDao: ColorSchemeDao,
 ) : ViewModel() {
+    private val _codecPackState = MutableStateFlow(codecPackRepository.toPendingState())
+    val codecPackState: StateFlow<CodecPackState> = _codecPackState
+
+    init {
+        refreshCodecPack()
+    }
+
     val epgs: StateFlow<List<Playlist>> = playlistRepository
         .observeAllEpgs()
         .stateIn(
@@ -88,6 +103,59 @@ class SettingViewModel @Inject constructor(
         viewModelScope.launch {
             playlistRepository.hideOrUnhideCategory(playlistUrl, group)
         }
+    }
+
+    fun refreshCodecPack() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _codecPackState.value = codecPackRepository.toState()
+        }
+    }
+
+    fun installCodecPack() {
+        if (!_codecPackState.value.enabled) return
+        if (_codecPackState.value.installing) return
+        _codecPackState.value = _codecPackState.value.copy(installing = true, error = null)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                codecPackRepository.installFromDefaultSnapshot()
+            }.fold(
+                onSuccess = { result ->
+                    _codecPackState.value = codecPackRepository.toState().copy(
+                        error = when (result) {
+                            is CodecPackInstallResult.UnsupportedAbi -> result.supportedAbis.joinToString()
+                            else -> null
+                        }
+                    )
+                },
+                onFailure = { error ->
+                    _codecPackState.value = codecPackRepository.toState().copy(error = error.message)
+                }
+            )
+        }
+    }
+
+    fun deleteCodecPack() {
+        viewModelScope.launch(Dispatchers.IO) {
+            codecPackRepository.deleteInstalledPack()
+            _codecPackState.value = codecPackRepository.toState()
+        }
+    }
+
+    private fun CodecPackRepository.toState(): CodecPackState {
+        return CodecPackState(
+            packId = packId,
+            enabled = enabled,
+            abi = currentAbi,
+            installed = isInstalled()
+        )
+    }
+
+    private fun CodecPackRepository.toPendingState(): CodecPackState {
+        return CodecPackState(
+            packId = packId,
+            enabled = enabled,
+            abi = currentAbi
+        )
     }
 
     val colorSchemes: StateFlow<List<ColorScheme>> = combine(
@@ -141,6 +209,7 @@ class SettingViewModel @Inject constructor(
         val epg = properties.epgState.value
         val selected = properties.selectedState.value
         val localStorage = properties.localStorageState.value
+        val forTv = properties.forTvState.value
         val urlOrUri = uri
             .takeIf { uri != Uri.EMPTY }?.toString().orEmpty()
             .takeIf { localStorage }
@@ -149,8 +218,20 @@ class SettingViewModel @Inject constructor(
         val basicUrl = if (inputBasicUrl.startWithHttpScheme()) inputBasicUrl
         else "http://$inputBasicUrl"
 
-        when {
-            else -> when (selected) {
+        if (forTv) {
+            subscribeForTv(
+                selected = selected,
+                title = title,
+                url = url,
+                basicUrl = basicUrl,
+                username = username,
+                password = password,
+                epg = epg
+            )
+            return
+        }
+
+        when (selected) {
                 DataSource.M3U -> {
                     if (title.isEmpty()) {
                         messager.emit(SettingMessage.EmptyTitle)
@@ -204,8 +285,75 @@ class SettingViewModel @Inject constructor(
 
                 else -> return
             }
-        }
         resetAllInputs()
+    }
+
+    private fun subscribeForTv(
+        selected: DataSource,
+        title: String,
+        url: String,
+        basicUrl: String,
+        username: String,
+        password: String,
+        epg: String
+    ) {
+        if (tvRepository.connected.value == null) {
+            messager.emit(SettingMessage.RemoteTvNotConnected)
+            return
+        }
+
+        when (selected) {
+            DataSource.M3U -> {
+                if (title.isEmpty()) {
+                    messager.emit(SettingMessage.EmptyTitle)
+                    return
+                }
+                if (url.isBlank()) {
+                    messager.emit(SettingMessage.EmptyUrl)
+                    return
+                }
+            }
+
+            DataSource.EPG -> {
+                if (title.isEmpty()) {
+                    messager.emit(SettingMessage.EmptyEpgTitle)
+                    return
+                }
+                if (epg.isEmpty()) {
+                    messager.emit(SettingMessage.EmptyEpg)
+                    return
+                }
+            }
+
+            DataSource.Xtream -> {
+                if (title.isEmpty()) {
+                    messager.emit(SettingMessage.EmptyTitle)
+                    return
+                }
+            }
+
+            else -> return
+        }
+
+        viewModelScope.launch {
+            val result = runCatching {
+                tvApi.subscribe(
+                    title = title,
+                    url = url.ifBlank { basicUrl },
+                    basicUrl = basicUrl,
+                    username = username,
+                    password = password,
+                    epg = epg.ifBlank { null },
+                    dataSource = selected
+                )
+            }.getOrNull()
+            if (result?.result == true) {
+                messager.emit(SettingMessage.RemoteTvSubscribeSent)
+                resetAllInputs()
+            } else {
+                messager.emit(SettingMessage.RemoteTvSubscribeFailed)
+            }
+        }
     }
 
     val backingUpOrRestoring: StateFlow<BackingUpAndRestoringState> = workManager

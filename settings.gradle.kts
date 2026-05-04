@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("native-load-gradle-plugin")
     repositories {
         gradlePluginPortal()
         google()
@@ -38,6 +39,8 @@ include(
     ":baselineprofile:tv"
 )
 include(":i18n")
+include(":testing:device-benchmark")
+include(":testing:mock-server")
 include(
     ":lint:annotation",
     ":lint:processor"

@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.m3u.core.unit.DataUnit
+import com.m3u.core.foundation.unit.DataUnit
 import com.m3u.smartphone.ui.material.ktx.plus
 import com.m3u.smartphone.ui.material.model.LocalSpacing
 import com.m3u.smartphone.ui.material.components.SettingDestination
@@ -17,9 +17,11 @@ internal fun PreferencesFragment(
     contentPadding: PaddingValues,
     versionName: String,
     versionCode: Int,
+    codecPackEnabled: Boolean,
     navigateToPlaylistManagement: () -> Unit,
     navigateToThemeSelector: () -> Unit,
     navigateToOptional: () -> Unit,
+    navigateToCodecPack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalSpacing.current
@@ -34,7 +36,9 @@ internal fun PreferencesFragment(
                 fragment = fragment,
                 navigateToPlaylistManagement = navigateToPlaylistManagement,
                 navigateToThemeSelector = navigateToThemeSelector,
-                navigateToOptional = navigateToOptional
+                navigateToOptional = navigateToOptional,
+                codecPackEnabled = codecPackEnabled,
+                navigateToCodecPack = navigateToCodecPack
             )
         }
         item {

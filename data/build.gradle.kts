@@ -5,7 +5,9 @@ plugins {
     alias(libs.plugins.org.jetbrains.kotlin.android)
     alias(libs.plugins.org.jetbrains.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
+    id("dev.oxyroid.native-load")
 }
+
 android {
     namespace = "com.m3u.data"
     ksp {
@@ -16,13 +18,16 @@ android {
         compose = true
         buildConfig = true
     }
+    defaultConfig {
+        buildConfigField("String", "NEXTLIB_CODEC_VERSION", "\"${libs.versions.nextLib.get()}\"")
+    }
     packaging {
         resources.excludes += "META-INF/**"
     }
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(project(":core:foundation"))
     implementation(libs.m3u.extension.api)
     implementation(libs.m3u.extension.annotation)
     ksp(libs.m3u.extension.processor)
@@ -82,7 +87,4 @@ dependencies {
 
     implementation(libs.jakewharton.disklrucache)
 
-    // auto
-    implementation(libs.auto.service.annotations)
-    ksp(libs.auto.service.ksp)
 }

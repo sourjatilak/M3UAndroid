@@ -4,6 +4,11 @@ import android.app.ActivityOptions
 import android.content.Intent
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -24,8 +29,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.SettingsRemote
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExpandedFullScreenSearchBar
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -58,30 +67,51 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
-import com.m3u.core.architecture.preferences.PreferencesKeys
-import com.m3u.core.architecture.preferences.preferenceOf
+import androidx.paging.PagingData
+import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
+import com.m3u.core.foundation.architecture.preferences.preferenceOf
 import com.m3u.core.wrapper.eventOf
+import com.m3u.data.database.model.Channel
+import com.m3u.data.service.MediaCommand
+import com.m3u.data.tv.model.RemoteDirection
 import com.m3u.business.setting.PresetImportViewModel
 import com.m3u.smartphone.R
 import com.m3u.i18n.R as I18nR
 import com.m3u.smartphone.ui.business.channel.PlayerActivity
 import com.m3u.smartphone.ui.common.AppNavHost
+import com.m3u.smartphone.ui.common.connect.RemoteControlSheet
+import com.m3u.smartphone.ui.common.connect.RemoteControlSheetValue
+import com.m3u.smartphone.ui.common.helper.LocalHelper
 import com.m3u.smartphone.ui.common.internal.Events
 import com.m3u.smartphone.ui.material.components.Destination
 import com.m3u.smartphone.ui.material.components.SettingDestination
 import com.m3u.smartphone.ui.material.components.SnackHost
 import com.m3u.smartphone.ui.material.components.TvKeyboard
 import com.m3u.smartphone.ui.material.model.LocalSpacing
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
 @Composable
 fun App(
     modifier: Modifier = Modifier,
 ) {
+    val viewModel: AppViewModel = hiltViewModel()
     val navController = rememberNavController()
 
     AppImpl(
         navController = navController,
+        channels = viewModel.channels,
+        isRemoteControlSheetVisible = viewModel.isConnectSheetVisible,
+        remoteControlSheetValue = viewModel.remoteControlSheetValue,
+        openRemoteControlSheet = { viewModel.isConnectSheetVisible = true },
+        onCode = { viewModel.code = it },
+        checkTvCodeOnSmartphone = viewModel::checkTvCodeOnSmartphone,
+        forgetTvCodeOnSmartphone = viewModel::forgetTvCodeOnSmartphone,
+        onRemoteDirection = viewModel::onRemoteDirection,
+        onDismissRequest = {
+            viewModel.code = ""
+            viewModel.isConnectSheetVisible = false
+        },
         modifier = modifier
     )
 }
@@ -89,6 +119,15 @@ fun App(
 @Composable
 private fun AppImpl(
     navController: NavHostController,
+    channels: Flow<PagingData<Channel>>,
+    isRemoteControlSheetVisible: Boolean,
+    remoteControlSheetValue: RemoteControlSheetValue,
+    openRemoteControlSheet: () -> Unit,
+    onCode: (String) -> Unit,
+    checkTvCodeOnSmartphone: () -> Unit,
+    forgetTvCodeOnSmartphone: () -> Unit,
+    onRemoteDirection: (RemoteDirection) -> Unit,
+    onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -133,6 +172,7 @@ private fun AppImpl(
     }
 
     val zappingMode by preferenceOf(PreferencesKeys.ZAPPING_MODE)
+    val remoteControl by preferenceOf(PreferencesKeys.REMOTE_CONTROL)
 
     // Favorite tab is only surfaced after the user has favourited at least one
     // channel. We keep this at the App level (rather than inside
@@ -403,8 +443,37 @@ private fun AppImpl(
                     .padding(spacing.medium)
             ) {
                 SnackHost(Modifier.weight(1f))
+                AnimatedVisibility(
+                    visible = remoteControl,
+                    enter = scaleIn(initialScale = 0.65f) + fadeIn(),
+                    exit = scaleOut(targetScale = 0.65f) + fadeOut()
+                ) {
+                    FloatingActionButton(
+                        elevation = FloatingActionButtonDefaults.elevation(
+                            defaultElevation = spacing.none,
+                            pressedElevation = spacing.none,
+                            focusedElevation = spacing.extraSmall,
+                            hoveredElevation = spacing.extraSmall
+                        ),
+                        onClick = openRemoteControlSheet
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.SettingsRemote,
+                            contentDescription = stringResource(com.m3u.i18n.R.string.feat_setting_remote_control)
+                        )
+                    }
+                }
             }
+
+            RemoteControlSheet(
+                value = remoteControlSheetValue,
+                visible = isRemoteControlSheetVisible,
+                onCode = onCode,
+                checkTvCodeOnSmartphone = checkTvCodeOnSmartphone,
+                forgetTvCodeOnSmartphone = forgetTvCodeOnSmartphone,
+                onRemoteDirection = onRemoteDirection,
+                onDismissRequest = onDismissRequest
+            )
         }
     }
 }
-

@@ -1,6 +1,6 @@
 package com.m3u.business.setting
 
-import com.m3u.core.wrapper.Message
+import com.m3u.core.foundation.wrapper.Message
 import com.m3u.i18n.R.string
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -50,6 +50,24 @@ sealed class SettingMessage(
         level = LEVEL_INFO,
         type = TYPE_SNACK,
         resId = string.feat_setting_epg_added
+    )
+
+    data object RemoteTvNotConnected : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_remote_tv_not_connected
+    )
+
+    data object RemoteTvSubscribeSent : SettingMessage(
+        level = LEVEL_INFO,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_remote_subscribe_sent
+    )
+
+    data object RemoteTvSubscribeFailed : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_remote_subscribe_failed
     )
 
     data object BackingUp : SettingMessage(

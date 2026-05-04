@@ -6,7 +6,10 @@ plugins {
     alias(libs.plugins.com.google.devtools.ksp)
     alias(libs.plugins.androidx.baselineprofile)
     id("kotlin-parcelize")
+    id("dev.oxyroid.native-load")
 }
+
+val m3uMockServerUrl = providers.gradleProperty("m3uMockServerUrl").orElse("http://10.0.2.2:8080")
 
 android {
     namespace = "com.m3u.smartphone"
@@ -19,6 +22,7 @@ android {
         versionName = "1.21"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments["m3uMockServerUrl"] = m3uMockServerUrl.get()
     }
     buildTypes {
         release {
@@ -79,10 +83,21 @@ android {
         outputs
             .map { it as com.android.build.gradle.internal.api.ApkVariantOutputImpl }
             .forEach { output ->
-                val abi = output.getFilter("ABI") ?: "universal"
-                output.outputFileName = "${versionName}_$abi.apk"
+                val abi = output.getFilter("ABI")
+                output.outputFileName = if (abi == null) {
+                    "$versionName.apk"
+                } else {
+                    "${versionName}_$abi.apk"
+                }
             }
     }
+}
+
+tasks.matching { task ->
+    task.name.startsWith("connected") && task.name.endsWith("AndroidTest")
+}.configureEach {
+    dependsOn(":testing:mock-server:startMockServer")
+    finalizedBy(":testing:mock-server:stopMockServer")
 }
 
 hilt {
@@ -97,7 +112,6 @@ baselineProfile {
 
 dependencies {
     implementation(project(":i18n"))
-    implementation(project(":core"))
     implementation(project(":core:foundation"))
     implementation(project(":core:extension"))
     implementation(project(":data"))
@@ -173,4 +187,8 @@ dependencies {
     implementation(libs.haze.materials)
     implementation(libs.acra.notification)
     implementation(libs.acra.mail)
+
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
 }

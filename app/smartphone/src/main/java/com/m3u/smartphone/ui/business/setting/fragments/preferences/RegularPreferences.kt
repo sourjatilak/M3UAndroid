@@ -4,12 +4,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ColorLens
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.m3u.core.util.basic.title
+import com.m3u.core.foundation.util.basic.title
 import com.m3u.i18n.R.string
 import com.m3u.smartphone.ui.material.components.Preference
 import com.m3u.smartphone.ui.material.model.LocalSpacing
@@ -21,6 +22,8 @@ internal fun RegularPreferences(
     navigateToPlaylistManagement: () -> Unit,
     navigateToThemeSelector: () -> Unit,
     navigateToOptional: () -> Unit,
+    codecPackEnabled: Boolean,
+    navigateToCodecPack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val spacing = LocalSpacing.current
@@ -46,5 +49,13 @@ internal fun RegularPreferences(
             enabled = fragment != SettingDestination.Optional,
             onClick = navigateToOptional
         )
+        if (codecPackEnabled) {
+            Preference(
+                title = stringResource(string.feat_setting_codec_pack).title(),
+                icon = Icons.Rounded.Download,
+                enabled = fragment != SettingDestination.CodecPack,
+                onClick = navigateToCodecPack
+            )
+        }
     }
 }

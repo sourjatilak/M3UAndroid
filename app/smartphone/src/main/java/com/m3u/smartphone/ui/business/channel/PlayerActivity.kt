@@ -17,7 +17,7 @@ import androidx.core.util.Consumer
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.m3u.business.channel.ChannelViewModel
-import com.m3u.core.Contracts
+import com.m3u.core.foundation.Contracts
 import com.m3u.data.database.model.isSeries
 import com.m3u.data.repository.channel.ChannelRepository
 import com.m3u.data.repository.playlist.PlaylistRepository

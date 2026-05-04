@@ -22,3 +22,6 @@ jks.txt
 *.jks
 /sample/
 /.kotlin
+__pycache__/
+*.pyc
+testing/mock-server/bin/
