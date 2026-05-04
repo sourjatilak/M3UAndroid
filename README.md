@@ -24,7 +24,7 @@
 - 🔍 Smart stream analysis
 - 🌐 Xtream protocol compatibility
 - 📥 Playlist management
-- 🚀 Lightweight & ad-free
+- 🚀 Lightweight & ad-free 
 - 🇺🇳 Multi-language support
 
 ## 🆕 What's New
@@ -57,10 +57,8 @@
 > TV UI is going to be remade in the future...
 
 ## ⬇️ Download Now
-[![Recommand - Telegram Channel](https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=for-the-badge&logo=telegram)](https://t.me/m3u_android)
+
 [![GitHub Release](https://img.shields.io/badge/Download-GitHub%20Release-black?style=for-the-badge&logo=github)](https://github.com/sourjatilak/M3UAndroid/releases/latest)
-[![F-Droid](https://img.shields.io/badge/Download-F--Droid-1976D2?style=for-the-badge&logo=android)](https://f-droid.org/packages/com.m3u.androidApp)
-[![IzzyOnDroid](https://img.shields.io/badge/Download-IzzyOnDroid-8A4182?style=for-the-badge)](https://apt.izzysoft.de/fdroid/index/apk/com.m3u.androidApp)
 
 **Nightly Builds**: [Pre-release Packages](https://nightly.link/sourjatilak/M3UAndroid/workflows/android/master/artifact.zip)
 
@@ -100,16 +98,10 @@ We welcome all contributions! Here's how you can help:
 - 📝 Improve documentation
 - 🔧 Submit code changes
 
-## 📈 Project Growth
-
-<a href="https://star-history.com/#sourjatilak/M3UAndroid&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date" />
-  </picture>
-</a>
-
 ## 📜 License
 
 Distributed under the **GPL 3.0**. See [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+Based on [oxyroid/M3UAndroid](https://github.com/oxyroid/M3UAndroid). Thanks to the original author and contributors.
