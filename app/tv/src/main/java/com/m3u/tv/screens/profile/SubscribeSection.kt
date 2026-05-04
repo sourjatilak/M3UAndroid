@@ -2,9 +2,16 @@ package com.m3u.tv.screens.profile
 
 import android.view.KeyEvent.KEYCODE_DPAD_UP
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -35,7 +43,7 @@ import com.m3u.i18n.R
 import com.m3u.tv.screens.dashboard.DashboardTopBarItemIndicator
 import com.m3u.tv.screens.dashboard.rememberChildPadding
 import com.m3u.tv.theme.JetStreamCardShape
-import com.m3u.tv.ui.component.TextField
+import com.m3u.tv.ui.component.TvKeyboard
 import com.m3u.tv.utils.createInitialFocusRestorerModifiers
 import com.m3u.tv.utils.occupyScreenSize
 
@@ -64,7 +72,7 @@ fun SettingViewModel.SubscribeSection() {
         item {
             val (parent, child) = createInitialFocusRestorerModifiers()
             val tabIndex =
-                remember(selectedState.value) { dataSources.indexOf(selectedState.value) }
+                remember(properties.selectedState.value) { dataSources.indexOf(properties.selectedState.value) }
             var isTabRowFocused by remember { mutableStateOf(false) }
             TabRow(
                 selectedTabIndex = tabIndex,
@@ -89,10 +97,10 @@ fun SettingViewModel.SubscribeSection() {
                     .then(parent)
             ) {
                 dataSources.forEachIndexed { index, dataSource ->
-                    val isSelected = dataSource == selectedState.value
+                    val isSelected = dataSource == properties.selectedState.value
                     Tab(
                         selected = isSelected,
-                        onFocus = { selectedState.value = dataSource },
+                        onFocus = { properties.selectedState.value = dataSource },
                         modifier = Modifier
                             .height(32.dp)
                             .focusRequester(focusRequesters[index + 1])
@@ -112,7 +120,7 @@ fun SettingViewModel.SubscribeSection() {
             }
         }
 
-        when (selectedState.value) {
+        when (properties.selectedState.value) {
             DataSource.M3U -> m3uPageConfiguration(this)
             DataSource.EPG -> epgPageConfiguration(this)
             DataSource.Xtream -> xtreamPageConfiguration(this)
@@ -126,13 +134,13 @@ private fun SettingViewModel.m3uPageConfiguration(
 ) {
     with(scope) {
         input(
-            value = titleState.value,
-            onValueChanged = { titleState.value = it },
+            value = properties.titleState.value,
+            onValueChanged = { properties.titleState.value = it },
             placeholder = R.string.feat_setting_placeholder_title
         )
         input(
-            value = urlState.value,
-            onValueChanged = { urlState.value = it },
+            value = properties.urlState.value,
+            onValueChanged = { properties.urlState.value = it },
             placeholder = R.string.feat_setting_placeholder_url
         )
         item {
@@ -153,13 +161,13 @@ private fun SettingViewModel.epgPageConfiguration(
 ) {
     with(scope) {
         input(
-            value = titleState.value,
-            onValueChanged = { titleState.value = it },
+            value = properties.titleState.value,
+            onValueChanged = { properties.titleState.value = it },
             placeholder = R.string.feat_setting_placeholder_epg_title
         )
         input(
-            value = epgState.value,
-            onValueChanged = { epgState.value = it },
+            value = properties.epgState.value,
+            onValueChanged = { properties.epgState.value = it },
             placeholder = R.string.feat_setting_placeholder_epg
         )
         item {
@@ -180,23 +188,23 @@ private fun SettingViewModel.xtreamPageConfiguration(
 ) {
     with(scope) {
         input(
-            value = titleState.value,
-            onValueChanged = { titleState.value = it },
+            value = properties.titleState.value,
+            onValueChanged = { properties.titleState.value = it },
             placeholder = R.string.feat_setting_placeholder_title
         )
         input(
-            value = urlState.value,
-            onValueChanged = { urlState.value = it },
+            value = properties.urlState.value,
+            onValueChanged = { properties.urlState.value = it },
             placeholder = R.string.feat_setting_placeholder_url
         )
         input(
-            value = usernameState.value,
-            onValueChanged = { usernameState.value = it },
+            value = properties.usernameState.value,
+            onValueChanged = { properties.usernameState.value = it },
             placeholder = R.string.feat_setting_placeholder_username
         )
         input(
-            value = passwordState.value,
-            onValueChanged = { passwordState.value = it },
+            value = properties.passwordState.value,
+            onValueChanged = { properties.passwordState.value = it },
             placeholder = R.string.feat_setting_placeholder_password
         )
         item {
@@ -218,10 +226,61 @@ private fun LazyListScope.input(
     @StringRes placeholder: Int
 ) {
     item {
-        TextField(
+        TvInputField(
             value = value,
             onValueChange = onValueChanged,
             placeholder = stringResource(placeholder).uppercase()
         )
+    }
+}
+
+@Composable
+private fun TvInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = modifier.padding(top = 8.dp)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = if (expanded) 2.dp else 1.dp,
+                    color = if (expanded) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.border,
+                    shape = JetStreamCardShape
+                )
+                .clickable { expanded = !expanded }
+                .focusable()
+                .onFocusChanged { if (!it.hasFocus) expanded = false }
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+        ) {
+            if (value.isEmpty()) {
+                Text(
+                    text = placeholder,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.graphicsLayer { alpha = 0.6f }
+                )
+            } else {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleSmall
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            TvKeyboard(
+                onChar = { ch -> onValueChange(value + ch) },
+                onBackspace = {
+                    if (value.isNotEmpty()) onValueChange(value.dropLast(1))
+                },
+                onSubmit = { expanded = false },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

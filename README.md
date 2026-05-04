@@ -1,16 +1,16 @@
-<a href="https://github.com/oxyroid/M3UAndroid">
+<a href="https://github.com/sourjatilak/M3UAndroid">
   <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://socialify.git.ci/oxyroid/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Foxyroid%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://socialify.git.ci/oxyroid/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Foxyroid%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Light" />
-   <img alt="Star History Chart" src="https://socialify.git.ci/oxyroid/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Foxyroid%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Light" />
+   <img alt="Star History Chart" src="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1" />
     
-    <source src="https://socialify.git.ci/oxyroid/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Foxyroid%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Auto" alt="M3UAndroid" width="640" height="320" />
+    <source src="https://socialify.git.ci/sourjatilak/M3UAndroid/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fsourjatilak%2FM3UAndroid%2Fmaster%2Fapp%2Fsmartphone%2Ficon.png&name=1&pattern=Plus&pulls=1&stargazers=1&theme=Auto" alt="M3UAndroid" width="640" height="320" />
   </picture>
 </a>
 
 <a href="https://t.me/m3u_android"><img src="https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=flat&logo=telegram"></a>
 <a href="https://t.me/m3u_android_chat"><img src="https://img.shields.io/badge/Telegram-Discussion-2CA5E0?style=flat&logo=telegram"></a>
-![GitHub release](https://img.shields.io/github/v/release/oxyroid/M3UAndroid?color=blue)
+![GitHub release](https://img.shields.io/github/v/release/sourjatilak/M3UAndroid?color=blue)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-brightgreen?logo=android)
 
 **M3UAndroid** is a feature-rich streaming media player built with modern Android development practices. Perfect for phones, tablets, and TV devices, delivering a seamless viewing experience powered by Jetpack Compose.
@@ -27,11 +27,22 @@
 
 ## 🆕 What's New
 
-- 🔎 **Global Search** — A dedicated Search tab that searches across all playlists at once, with results grouped by categories, channels, live streams, and VOD
-- 🧠 **Smart Search Bar** — Context-aware search bar that adapts per screen: app header on For You, filter on Favorite & Playlist pages, and full search on the Search tab
-- 🗂️ **Category Navigation** — Tap a category from search results to jump directly into the matching playlist with that category auto-selected
+- 📦 **Universal APK for Phone, Tablet & TV** — A single build now installs and runs on Android phones, tablets, *and* Android TV devices. No more per-form-factor builds.
+- 🎁 **First-Run Playlist Import** — On initial launch, the app can auto-subscribe to a bundled set of preset playlists with a live progress dialog. Skips gracefully once complete.
+- ⚡ **Xtream Response Cache** — Xtream API responses are cached on disk for 30 minutes, cutting re-subscribe latency and API chatter after relaunches.
+- 🏠 **Home Tab Redesigned** — Each subscription is now a single wrapper card. For Xtream, Live / VOD / Series collapse into one card with vertical sub-chips, a clear title, and a gear icon. M3U subscriptions follow the same layout with a single chip.
+- ⚙️ **Gear → Configure → Unsubscribe** — Tap the gear on any home card to open its configuration screen. A new "Remove playlist" (or "Unsubscribe server" for Xtream) action at the bottom removes the whole subscription — for Xtream this cleans up Live, VOD, and Series sibling rows in one action.
+- ⌨️ **D-Pad On-Screen Keyboard** — New focusable grid keyboard for Android TV / remote-control text entry (URLs, credentials, search).
+- ⏭️ **±10 s Player Seek** — The player mask now includes Rewind 10 s and Forward 10 s buttons flanking Play/Pause on VOD content. The refresh icon only appears after a real playback error, not on idle or ended states.
+- ⭐ **Smarter Favorite Tab** — The Favorite tab only appears once you have at least one favorited channel, keeping the nav bar tidy.
+
+## 🎞️ Previously
+
+- 🔎 **Global Search** — Dedicated Search tab with cross-playlist results grouped by categories, channels, live streams, and VOD
+- 🧠 **Smart Search Bar** — Context-aware search bar that adapts per screen
+- 🗂️ **Category Navigation** — Tap a category from search results to jump into the matching playlist
 - 🛡️ **Player Memory Leak Fix** — Resolved a ComposeView leak in PlayerActivity during Picture-in-Picture re-attach cycles
-- 📭 **Empty State Messages** — Friendly prompts on For You and Favorite tabs when no playlists or favorites have been added yet
+- 📭 **Empty State Messages** — Friendly prompts on For You and Favorite tabs when empty
 
 ## 📸 Screenshots
 
@@ -45,11 +56,11 @@
 
 ## ⬇️ Download Now
 [![Recommand - Telegram Channel](https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=for-the-badge&logo=telegram)](https://t.me/m3u_android)
-[![GitHub Release](https://img.shields.io/badge/Download-GitHub%20Release-black?style=for-the-badge&logo=github)](https://github.com/oxyroid/M3UAndroid/releases/latest)
+[![GitHub Release](https://img.shields.io/badge/Download-GitHub%20Release-black?style=for-the-badge&logo=github)](https://github.com/sourjatilak/M3UAndroid/releases/latest)
 [![F-Droid](https://img.shields.io/badge/Download-F--Droid-1976D2?style=for-the-badge&logo=android)](https://f-droid.org/packages/com.m3u.androidApp)
 [![IzzyOnDroid](https://img.shields.io/badge/Download-IzzyOnDroid-8A4182?style=for-the-badge)](https://apt.izzysoft.de/fdroid/index/apk/com.m3u.androidApp)
 
-**Nightly Builds**: [Pre-release Packages](https://nightly.link/oxyroid/M3UAndroid/workflows/android/master/artifact.zip)
+**Nightly Builds**: [Pre-release Packages](https://nightly.link/sourjatilak/M3UAndroid/workflows/android/master/artifact.zip)
 
 ## 🛠 Tech Stack
 
@@ -89,11 +100,11 @@ We welcome all contributions! Here's how you can help:
 
 ## 📈 Project Growth
 
-<a href="https://star-history.com/#oxyroid/M3UAndroid&Date">
+<a href="https://star-history.com/#sourjatilak/M3UAndroid&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=oxyroid/M3UAndroid&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=oxyroid/M3UAndroid&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=oxyroid/M3UAndroid&type=Date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=sourjatilak/M3UAndroid&type=Date" />
   </picture>
 </a>
 

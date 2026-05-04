@@ -16,18 +16,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import com.m3u.data.database.model.DataSource
 import com.m3u.data.database.model.Playlist
-import com.m3u.data.database.model.epgUrlsOrXtreamXmlUrl
-import com.m3u.data.database.model.refreshable
-import com.m3u.data.database.model.type
-import com.m3u.i18n.R.string
 import com.m3u.smartphone.ui.common.helper.LocalHelper
 import com.m3u.smartphone.ui.common.helper.Metadata
 import com.m3u.smartphone.ui.common.helper.useRailNav
@@ -47,7 +41,7 @@ internal fun PlaylistGallery(
     subscribingPlaylistUrls: List<String>,
     refreshingEpgUrls: List<String>,
     onClick: (Playlist) -> Unit,
-    onLongClick: (Playlist) -> Unit,
+    onConfigure: (Playlist) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
     header: (@Composable () -> Unit)? = null
@@ -79,6 +73,17 @@ internal fun PlaylistGallery(
                 .launchIn(this)
         }
     }
+
+    // Collapse Xtream sub-playlists sharing the same server into wrapper cards.
+    // Remembered against the raw inputs so we don't regroup on every scroll.
+    val groups = remember(playlists, subscribingPlaylistUrls, refreshingEpgUrls) {
+        groupPlaylists(
+            playlists = playlists,
+            subscribingPlaylistUrls = subscribingPlaylistUrls,
+            refreshingEpgUrls = refreshingEpgUrls,
+        )
+    }
+
     LazyVerticalGrid(
         state = state,
         columns = GridCells.Fixed(rowCount),
@@ -92,30 +97,15 @@ internal fun PlaylistGallery(
                 header()
             }
         }
-        val entries = playlists.entries.toList()
-        items(entries.size) { index ->
-            val (playlist, count) = entries[index]
-            val subscribing = playlist.url in subscribingPlaylistUrls
-            val refreshing = playlist
-                .epgUrlsOrXtreamXmlUrl()
-                .any { it in refreshingEpgUrls }
-            PlaylistItem(
-                label = PlaylistGalleryDefaults.calculateUiTitle(
-                    title = playlist.title,
-                    refreshable = playlist.refreshable
-                ),
-                type = with(playlist) {
-                    when (source) {
-                        DataSource.M3U -> "$source"
-                        DataSource.Xtream -> "$source $type"
-                        else -> null
-                    }
-                },
-                count = count,
-                subscribingOrRefreshing = subscribing || refreshing,
-                refreshable = playlist.refreshable,
-                onClick = { onClick(playlist) },
-                onLongClick = { onLongClick(playlist) },
+        items(
+            count = groups.size,
+            key = { index -> groups[index].key },
+        ) { index ->
+            val group = groups[index]
+            PlaylistGroupCard(
+                group = group,
+                onEntryClick = onClick,
+                onConfigure = onConfigure,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
@@ -130,15 +120,6 @@ internal fun PlaylistGallery(
 }
 
 private object PlaylistGalleryDefaults {
-    @Composable
-    fun calculateUiTitle(title: String, refreshable: Boolean): String {
-        val actual = title.ifEmpty {
-            if (!refreshable) stringResource(string.feat_foryou_imported_playlist_title)
-            else ""
-        }
-        return actual.uppercase()
-    }
-
     @Composable
     fun calculateItemHorizontalPadding(
         rowCount: Int,

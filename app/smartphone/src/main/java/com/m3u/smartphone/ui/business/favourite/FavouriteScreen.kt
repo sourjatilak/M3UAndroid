@@ -2,18 +2,23 @@ package com.m3u.smartphone.ui.business.favourite
 
 import android.content.res.Configuration
 import android.view.KeyEvent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
@@ -54,6 +59,7 @@ fun FavoriteRoute(
     navigateToChannel: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
+    searchQuery: String = "",
     viewModel: FavoriteViewModel = hiltViewModel()
 ) {
     val title = stringResource(R.string.ui_title_favourite)
@@ -62,6 +68,11 @@ fun FavoriteRoute(
     val context = LocalContext.current
 
     val coroutineScope = rememberCoroutineScope()
+
+    // Sync global search bar query into favorites filter
+    LaunchedEffect(searchQuery) {
+        viewModel.query.value = searchQuery
+    }
 
     var rowCount by mutablePreferenceOf(PreferencesKeys.ROW_COUNT)
     val godMode by preferenceOf(PreferencesKeys.GOD_MODE)
@@ -197,14 +208,24 @@ private fun FavoriteScreen(
         Configuration.ORIENTATION_LANDSCAPE -> rowCount + 2
         else -> rowCount + 2
     }
-    FavoriteGallery(
-        contentPadding = contentPadding,
-        channels = channels,
-        zapping = zapping,
-        recently = recently,
-        rowCount = actualRowCount,
-        onClick = onClickChannel,
-        onLongClick = onLongClickChannel,
-        modifier = modifier.hazeSource(LocalHazeState.current)
-    )
+    if (channels.itemCount == 0) {
+        Box(modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.ui_title_favourite_empty),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        FavoriteGallery(
+            contentPadding = contentPadding,
+            channels = channels,
+            zapping = zapping,
+            recently = recently,
+            rowCount = actualRowCount,
+            onClick = onClickChannel,
+            onLongClick = onLongClickChannel,
+            modifier = modifier.hazeSource(LocalHazeState.current)
+        )
+    }
 }

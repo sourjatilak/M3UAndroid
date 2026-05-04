@@ -55,10 +55,10 @@ internal fun OtherPreferences(
         )
         Preference(
             title = stringResource(string.feat_setting_source_code).title(),
-            content = "@oxyroid/M3UAndroid",
+            content = "@sourjatilak/M3UAndroid",
             icon = Icons.Rounded.Book,
             onClick = {
-                uriHandler.openUri("https://github.com/oxyroid/M3UAndroid")
+                uriHandler.openUri("https://github.com/sourjatilak/M3UAndroid")
             }
         )
     }

@@ -112,6 +112,7 @@ dependencies {
     implementation(project(":business:channel"))
     implementation(project(":business:playlist-configuration"))
     implementation(project(":business:extension"))
+    implementation(project(":business:search"))
     // baselineprofile
     implementation(libs.androidx.profileinstaller)
     "baselineProfile"(project(":baselineprofile:smartphone"))
@@ -155,7 +156,7 @@ dependencies {
     // accompanist
     implementation(libs.google.accompanist.permissions)
     // performance
-    debugImplementation(libs.squareup.leakcanary)
+    // debugImplementation(libs.squareup.leakcanary)
     // other
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.constraintlayout.compose)

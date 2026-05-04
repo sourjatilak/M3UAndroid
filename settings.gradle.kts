@@ -18,7 +18,7 @@ dependencyResolutionManagement {
 rootProject.name = "M3U"
 include(
     ":app:smartphone",
-//    ":app:tv",
+    ":app:tv",
     ":app:extension"
 )
 include(":core", ":core:foundation", ":core:extension")
@@ -31,10 +31,11 @@ include(
     ":business:playlist-configuration",
     ":business:channel",
     ":business:extension",
+    ":business:search",
 )
 include(
     ":baselineprofile:smartphone",
-//    ":baselineprofile:tv"
+    ":baselineprofile:tv"
 )
 include(":i18n")
 include(
