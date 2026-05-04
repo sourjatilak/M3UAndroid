@@ -156,7 +156,7 @@ dependencies {
     // accompanist
     implementation(libs.google.accompanist.permissions)
     // performance
-    debugImplementation(libs.squareup.leakcanary)
+    // debugImplementation(libs.squareup.leakcanary)
     // other
     implementation(libs.androidx.graphics.shapes)
     implementation(libs.androidx.constraintlayout.compose)

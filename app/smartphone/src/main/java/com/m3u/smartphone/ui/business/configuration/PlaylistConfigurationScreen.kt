@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandIn
@@ -16,17 +17,27 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -39,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,6 +99,8 @@ internal fun PlaylistConfigurationRoute(
     val expired by viewModel.expired.collectAsStateWithLifecycle()
     val xtreamUserInfo by viewModel.xtreamUserInfo.collectAsStateWithLifecycle()
 
+    val onBackPressedDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+
     LifecycleResumeEffect(playlist?.title) {
         Metadata.title = AnnotatedString(playlist?.title?.title().orEmpty())
         Metadata.color = Color.Unspecified
@@ -128,6 +142,11 @@ internal fun PlaylistConfigurationRoute(
                 )
             },
             onCancelSyncProgrammes = viewModel::onCancelSyncProgrammes,
+            onUnsubscribe = {
+                viewModel.unsubscribe {
+                    onBackPressedDispatcher?.onBackPressed()
+                }
+            },
             modifier = modifier,
             contentPadding = contentPadding
         )
@@ -147,6 +166,7 @@ private fun PlaylistConfigurationScreen(
     onUpdatePlaylistAutoRefreshProgrammes: () -> Unit,
     onSyncProgrammes: () -> Unit,
     onCancelSyncProgrammes: () -> Unit,
+    onUnsubscribe: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues()
 ) {
@@ -158,6 +178,50 @@ private fun PlaylistConfigurationScreen(
     val hasChanged by remember(playlist.title, playlist.userAgent) {
         derivedStateOf { title != playlist.title || userAgent != playlist.userAgent.orEmpty() }
     }
+    var showUnsubscribeConfirm by remember { mutableStateOf(false) }
+
+    if (showUnsubscribeConfirm) {
+        AlertDialog(
+            onDismissRequest = { showUnsubscribeConfirm = false },
+            title = {
+                Text(
+                    text = "Remove playlist?",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            },
+            text = {
+                val message = when (playlist.source) {
+                    DataSource.Xtream ->
+                        "This will unsubscribe the Xtream server \"${playlist.title}\" " +
+                                "and remove its Live, VOD, and Series playlists along with " +
+                                "all downloaded channels. This can't be undone."
+                    else ->
+                        "This will unsubscribe \"${playlist.title}\" and remove all its " +
+                                "channels. This can't be undone."
+                }
+                Text(text = message)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showUnsubscribeConfirm = false
+                        onUnsubscribe()
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Remove")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnsubscribeConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Background(modifier) {
         Box {
             LazyColumn(
@@ -226,6 +290,31 @@ private fun PlaylistConfigurationScreen(
                         XtreamPanel(
                             info = xtreamUserInfo,
                             modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+
+                item {
+                    Spacer(Modifier.height(spacing.medium))
+                }
+                item {
+                    OutlinedButton(
+                        onClick = { showUnsubscribeConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DeleteForever,
+                            contentDescription = null,
+                        )
+                        Spacer(Modifier.width(spacing.small))
+                        Text(
+                            text = when (playlist.source) {
+                                DataSource.Xtream -> "Unsubscribe server"
+                                else -> "Remove playlist"
+                            }
                         )
                     }
                 }

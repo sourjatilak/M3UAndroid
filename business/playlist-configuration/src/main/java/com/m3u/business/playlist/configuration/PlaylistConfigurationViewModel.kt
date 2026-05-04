@@ -161,4 +161,53 @@ class PlaylistConfigurationViewModel @Inject constructor(
         val workInfo = subscribingOrRefreshingWorkInfo.value
         workInfo?.id?.let { workManager.cancelWorkById(it) }
     }
+
+    /**
+     * Removes the playlist associated with this configuration page. For Xtream
+     * playlists, also unsubscribes any sibling rows (Live / VOD / Series) that
+     * share the same `(basicUrl, username, password)` — the user opened this
+     * screen to manage "the subscription", not one sub-type, so deleting one
+     * row and leaving the other two orphaned would be surprising.
+     *
+     * [onCompleted] is invoked on the main dispatcher after all deletions
+     * finish so the caller can pop the back stack.
+     */
+    fun unsubscribe(onCompleted: () -> Unit = {}) {
+        val currentUrl = playlistUrl.value
+        val currentPlaylist = playlist.value
+        viewModelScope.launch {
+            val siblingUrls: List<String> = when {
+                currentPlaylist?.source == DataSource.Xtream -> {
+                    val currentInput = XtreamInput
+                        .decodeFromPlaylistUrlOrNull(currentUrl)
+                    if (currentInput == null) {
+                        listOf(currentUrl)
+                    } else {
+                        // Include the current row itself — filter the full list
+                        // against the shared server identity.
+                        playlistRepository.getAll()
+                            .filter { it.source == DataSource.Xtream }
+                            .mapNotNull { candidate ->
+                                val input = XtreamInput
+                                    .decodeFromPlaylistUrlOrNull(candidate.url)
+                                if (input != null &&
+                                    input.basicUrl == currentInput.basicUrl &&
+                                    input.username == currentInput.username &&
+                                    input.password == currentInput.password
+                                ) {
+                                    candidate.url
+                                } else null
+                            }
+                            .ifEmpty { listOf(currentUrl) }
+                    }
+                }
+                else -> listOf(currentUrl)
+            }
+            siblingUrls.forEach { url ->
+                runCatching { playlistRepository.unsubscribe(url) }
+                    .onFailure { timber.e(it, "unsubscribe failed for url=$url") }
+            }
+            onCompleted()
+        }
+    }
 }
