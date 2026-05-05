@@ -528,6 +528,8 @@ internal class PlaylistRepositoryImpl @Inject constructor(
 
     override suspend fun onUpdatePlaylistTitle(url: String, title: String) = playlistDao.updateTitle(url, title)
 
+    override suspend fun onUpdateDisplayTitle(url: String, displayTitle: String?) = playlistDao.updateDisplayTitle(url, displayTitle)
+
     override suspend fun onUpdatePlaylistUserAgent(url: String, userAgent: String?) = playlistDao.updateUserAgent(url, userAgent)
 
     override fun observeAllCounts(): Flow<Map<Playlist, Int>> = playlistDao.observeAllCounts()

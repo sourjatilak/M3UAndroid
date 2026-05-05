@@ -81,6 +81,9 @@ interface PlaylistDao {
     @Query("UPDATE playlists SET title = :target WHERE url = :url")
     suspend fun updateTitle(url: String, target: String)
 
+    @Query("UPDATE playlists SET display_title = :displayTitle WHERE url = :url")
+    suspend fun updateDisplayTitle(url: String, displayTitle: String?)
+
     @Transaction
     suspend fun updateUrl(oldUrl: String, newUrl: String) {
         val playlist = get(oldUrl) ?: return
