@@ -104,23 +104,23 @@ app:extension ───┬──► m3u-extension-api (external)
 
 | Module | Package | Description |
 |--------|---------|-------------|
-| `app:smartphone` | `com.m3u.smartphone` | Phone/tablet app with Material 3, NavigationSuiteScaffold, search bar, Glance widgets |
-| `app:tv` | `com.m3u.tv` | Android TV app with TV Material 3, D-pad navigation, focus management |
+| `app:smartphone` | `com.m3u.smartphone` | Phone/tablet app with Material 3, NavigationSuiteScaffold, search bar, remote control, Glance widgets |
+| `app:tv` | `com.m3u.tv` | Android TV app with custom dark design system (TvColors/TvFonts), surface-based navigation, TvNavigationRail, integrated player overlay, remote control pairing |
 | `app:extension` | `com.m3u.extension` | Standalone extension APK for custom playlist parsers via AIDL |
 
 ### Core Modules
 
 | Module | Package | Description |
 |--------|---------|-------------|
-| `core` | `com.m3u.core` | Preferences (DataStore), Publisher, FileProvider, wrapper types (`Event`, `Message`, `Resource`, `Sort`), utility extensions |
-| `core:foundation` | `com.m3u.core.foundation` | Compose foundation utilities shared across platforms |
+| `core` | `com.m3u.core` | Legacy wrapper — most utilities have migrated to `core:foundation` |
+| `core:foundation` | `com.m3u.core.foundation` | Preferences (DataStore), Publisher, Abi, wrapper types (`Event`, `Message`, `Resource`, `Sort`), Compose foundation utilities, utility extensions. Primary shared module. |
 | `core:extension` | `com.m3u.core.extension` | Extension host runtime — AIDL bindings, extension discovery, communication with extension APKs |
 
 ### Data Module
 
 | Module | Package | Description |
 |--------|---------|-------------|
-| `data` | `com.m3u.data` | Room database, repositories, parsers (M3U/Xtream/EPG), PlayerManager (Media3), WorkManager workers, Ktor server for remote control, Retrofit API clients |
+| `data` | `com.m3u.data` | Room database, repositories, parsers (M3U/Xtream/EPG), PlayerManager (Media3), WorkManager workers, Ktor server for TV remote control pairing, DPadReactionService, TvRepository, Retrofit API clients, Xtream response cache |
 
 ### Business Modules
 
@@ -142,6 +142,7 @@ app:extension ───┬──► m3u-extension-api (external)
 | `i18n` | String resources for 12+ languages |
 | `lint:annotation` | Custom lint annotation definitions |
 | `lint:processor` | KSP-based lint rule processor |
+| `native-load-gradle-plugin` | Git submodule — Gradle plugin for loading native libraries (FFmpeg, etc.) at build time |
 | `baselineprofile:smartphone` | Baseline profile generation for smartphone app |
 | `baselineprofile:tv` | Baseline profile generation for TV app |
 
@@ -342,63 +343,89 @@ The player screen (`PlayerActivity` → `ChannelScreen`) features:
 - PiP mode support with `isInPipMode` static tracking
 - Zapping mode — keeps player alive while browsing playlists
 
+### Remote Control (Phone → TV)
+
+The smartphone app can act as a remote control for the TV app via a PIN-based pairing system:
+
+```
+ui/common/connect/
+├── RemoteControlSheet.kt          — Bottom sheet container (Prepare or DPad mode)
+├── RemoteControlSheetValue.kt     — Sealed state: Prepare(code, searching) | DPad(tvInfo)
+├── PrepareContent.kt              — PIN entry UI with virtual number keyboard
+├── CodeRow.kt                     — 6-digit code display
+├── VirtualNumberKeyboard.kt       — Numeric keypad for PIN entry
+├── DPadContent.kt                 — Virtual D-pad after successful pairing
+└── RemoteDirectionController.kt   — Direction gesture/button handling
+```
+
+Flow:
+1. TV app broadcasts a 6-digit code via `TvRepository.broadcastCodeOnTv` (Ktor server)
+2. User enters the code on the smartphone's `RemoteControlSheet`
+3. `AppViewModel.checkTvCodeOnSmartphone()` calls `TvRepository.connectToTv(pin)`
+4. Connection state flows through `ConnectionToTvValue` (Idle → Searching → Connecting → Completed/Timeout)
+5. Once connected, `RemoteControlSheetValue.DPad(tvInfo)` shows the virtual D-pad
+6. D-pad directions are sent via `TvApiDelegate.remoteDirection()` to the TV's Ktor server
+7. TV dispatches received directions as `KeyEvent`s via `DPadReactionService`
+
+The remote control FAB is conditionally visible via `PreferencesKeys.REMOTE_CONTROL` preference, animated with `scaleIn`/`fadeIn`.
+
 ---
 
 ## TV Architecture
 
 ### TV Navigation
 
-The TV app uses a nested navigation structure optimized for D-pad/remote control:
+The TV app was rewritten upstream into a single-screen architecture with surface-based state management (no NavHost):
 
 ```
 MainActivity
   └── MaterialTheme(darkColorScheme)
         └── App (Composable)
-              └── NavHost (root)
-                    ├── Dashboard (start)
-                    │     ├── DashboardTopBar (tab row)
-                    │     │     ├── Foryou tab
-                    │     │     ├── Favorite tab
-                    │     │     ├── Search tab
-                    │     │     └── Profile tab (+ dynamic playlist tabs)
-                    │     └── Body (nested NavHost)
-                    │           ├── Foryou → ForyouScreen (carousel, top-10 lists)
-                    │           ├── Favorite → FavoriteScreen
-                    │           ├── Search → SearchScreen
-                    │           └── Profile → ProfileScreen (settings, language, about)
-                    ├── Playlist/{url} → PlaylistScreen
-                    ├── Channel → ChannelScreen (full-screen player)
-                    └── ChannelDetail/{id} → ChannelDetailScreen
+              ├── PresetImportDialog (first-run playlist import)
+              ├── BackHandler (surface-aware back navigation)
+              └── Box (fullscreen)
+                    ├── TvBackdrop (blurred hero channel background)
+                    ├── Row
+                    │     ├── TvNavigationRail (Home, Library, Favorites, Status)
+                    │     └── TvBrowsePane (destination-driven content)
+                    │           ├── Home → Hero card, recent channels, playlist cards
+                    │           ├── Library → Channel grid for selected playlist
+                    │           ├── Favorites → Favorite channel grid
+                    │           └── Status → Playlist/channel/favorite counts
+                    ├── AnimatedVisibility(TvPlayerScreen)
+                    │     └── Full-screen player with play/pause, back, close
+                    └── Remote control code overlay (top-right, when paired)
 ```
 
-Key differences from smartphone:
-- Uses `androidx.tv.material3` (TV Material) instead of standard Material 3
-- Always dark color scheme (`darkColorScheme()`)
-- `DashboardTopBar` with animated show/hide based on scroll position
-- `DashboardKey` sealed class supports dynamic tabs (playlists appear as tabs)
-- `BackPressHandledArea` intercepts `Key.Back` for custom back navigation
-- `FeaturedMoviesCarousel` — auto-scrolling content carousel
-- `Top10MoviesList` — numbered horizontal list
+Key architectural changes from the previous NavHost-based TV app:
+- **Surface-based state** — `TvSurface` enum (`Browse`, `Player`) replaces navigation for the player overlay. No NavHost or route-based navigation.
+- **Destination enum** — `TvDestination` (`Home`, `Library`, `Favorites`, `Status`) drives `TvBrowsePane` content without navigation graph.
+- **Single ViewModel** — `TvHomeViewModel` manages all TV state: playlists, channels, favorites, recent, player lifecycle, and remote control.
+- **Custom design system** — `TvColors` (dark cinema palette), `TvFonts` (Inter + Lexend Exa), `TvComponents` (focus-aware cards, buttons, chips).
+- **Remote control pairing** — TV broadcasts a 6-digit code via `TvRepository.broadcastCodeOnTv`; smartphone connects via `TvRepository.connectToTv(pin)`. D-pad commands flow through `DPadReactionService` and are dispatched as `KeyEvent`s on the TV's root view.
+
+### TV State Model
+
+```kotlin
+TvUiState(
+    playlists: List<Playlist>,          // All subscribed playlists
+    counts: Map<Playlist, Int>,         // Channel count per playlist
+    selectedPlaylist: Playlist?,        // Currently browsing
+    channels: List<Channel>,            // Channels for selected playlist
+    favorites: List<Channel>,           // All favorited channels
+    recent: Channel?,                   // Last played channel
+    loadingChannels: Boolean            // Loading indicator
+)
+```
 
 ### TV Focus & Input
 
-The TV app is built around focus-based navigation:
-
-- `FocusRequester` instances stored in `TopBarFocusRequesters` array for programmatic focus control
-- `BringIntoViewIfChildrenAreFocused` — scrolls parent when child receives focus
-- `onPreviewKeyEvent` handlers for D-pad key interception
-- `isTopBarVisible` state controls top bar show/hide with animated offset
-- `isComingBackFromDifferentScreen` flag manages focus restoration after navigation
-- `GradientBg` — gradient background effects for TV visual style
-
-TV Player components (`screens/player/components/`):
-- `VideoPlayerOverlay` — full-screen overlay with controls
-- `VideoPlayerControls` — play/pause, seek, channel info
-- `VideoPlayerSeeker` — seek bar with thumbnail preview
-- `VideoPlayerPulse` — visual feedback for fast-forward/rewind
-- `VideoPlayerIndicator` — buffering/loading indicator
-- `VideoPlayerState` — centralized player state management
-- `RememberPlayer` — composable player lifecycle management
+- `TvNavigationRail` — vertical icon rail with focus-driven selection
+- `TvBrowsePane` — content area that swaps based on `TvDestination`
+- Focus management via `FocusRequester` and `focusProperties`
+- D-pad key interception via `onPreviewKeyEvent` for custom navigation
+- `TvKeyboard` — on-screen grid keyboard for remote-control text entry (URLs, credentials, search)
+- Remote direction dispatch: `DPadReactionService.incoming` flow → `KeyEvent` dispatch on `LocalView`
 
 ---
 
@@ -643,7 +670,7 @@ Hilt modules are organized by layer:
 | Category | Technology |
 |----------|-----------|
 | Language | Kotlin (100%), JVM 17, context parameters enabled |
-| UI Framework | Jetpack Compose (smartphone: Material 3, TV: TV Material 3) |
+| UI Framework | Jetpack Compose (smartphone: Material 3, TV: custom dark design system with TV Material 3 primitives) |
 | Architecture | MVVM with Hilt DI |
 | Navigation | Jetpack Navigation Compose (multi-NavHost) |
 | Database | Room (v20, auto-migrations, KSP) |
@@ -661,7 +688,7 @@ Hilt modules are organized by layer:
 | Lint | Custom KSP-based lint rules (`@Exclude`, `@Likable`) |
 | Performance | Baseline Profiles, LeakCanary (debug), Compose metrics |
 | Crash Reporting | ACRA (notification + email) |
-| Build | Gradle 8.11, Version Catalog (`libs.versions.toml`) |
+| Build | Gradle 8.11, Version Catalog (`libs.versions.toml`), native-load-gradle-plugin (submodule) |
 | Min SDK | 26 (Android 8.0) |
 | Target SDK | 33 (smartphone), 35 (extension) |
 | Compile SDK | 36 |
