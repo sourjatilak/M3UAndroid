@@ -139,6 +139,29 @@ class PlaylistConfigurationViewModel @Inject constructor(
         }
     }
 
+    fun onUpdateVisibility(showLive: Boolean, showVod: Boolean, showSeries: Boolean) {
+        val playlistUrl = playlistUrl.value
+        viewModelScope.launch {
+            // Propagate visibility to all Xtream siblings sharing the same server
+            val current = playlistRepository.get(playlistUrl) ?: return@launch
+            if (current.source == DataSource.Xtream) {
+                val input = XtreamInput.decodeFromPlaylistUrlOrNull(playlistUrl)
+                if (input != null) {
+                    val all = playlistRepository.getAll()
+                    all.filter { it.source == DataSource.Xtream }
+                        .filter {
+                            val other = XtreamInput.decodeFromPlaylistUrlOrNull(it.url)
+                            other != null && other.basicUrl == input.basicUrl &&
+                                    other.username == input.username && other.password == input.password
+                        }
+                        .forEach { playlistRepository.onUpdateVisibility(it.url, showLive, showVod, showSeries) }
+                    return@launch
+                }
+            }
+            playlistRepository.onUpdateVisibility(playlistUrl, showLive, showVod, showSeries)
+        }
+    }
+
     fun onUpdatePlaylistUserAgent(userAgent: String?) {
         val playlistUrl = playlistUrl.value
         viewModelScope.launch {

@@ -104,6 +104,13 @@ internal fun groupPlaylists(
     val groupTitles = HashMap<String, String>()
 
     for ((playlist, count) in playlists) {
+        // Skip entries hidden by visibility toggles
+        if (playlist.source == DataSource.Xtream) {
+            val type = playlist.type
+            if (type == DataSource.Xtream.TYPE_LIVE && !playlist.showLive) continue
+            if (type == DataSource.Xtream.TYPE_VOD && !playlist.showVod) continue
+            if (type == DataSource.Xtream.TYPE_SERIES && !playlist.showSeries) continue
+        }
         val entry = PlaylistGroup.Entry(
             playlist = playlist,
             count = count,

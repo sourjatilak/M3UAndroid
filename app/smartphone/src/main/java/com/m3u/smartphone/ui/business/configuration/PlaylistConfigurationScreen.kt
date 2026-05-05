@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -36,6 +37,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -121,6 +123,7 @@ internal fun PlaylistConfigurationRoute(
             xtreamUserInfo = xtreamUserInfo,
             onUpdatePlaylistTitle = viewModel::onUpdatePlaylistTitle,
             onUpdateDisplayTitle = viewModel::onUpdateDisplayTitle,
+            onUpdateVisibility = viewModel::onUpdateVisibility,
             onUpdatePlaylistUserAgent = viewModel::onUpdatePlaylistUserAgent,
             onUpdateEpgPlaylist = viewModel::onUpdateEpgPlaylist,
             onUpdatePlaylistAutoRefreshProgrammes = viewModel::onUpdatePlaylistAutoRefreshProgrammes,
@@ -166,6 +169,7 @@ private fun PlaylistConfigurationScreen(
     xtreamUserInfo: Resource<XtreamInfo.UserInfo>,
     onUpdatePlaylistTitle: (String) -> Unit,
     onUpdateDisplayTitle: (String) -> Unit,
+    onUpdateVisibility: (Boolean, Boolean, Boolean) -> Unit,
     onUpdatePlaylistUserAgent: (String?) -> Unit,
     onUpdateEpgPlaylist: (PlaylistRepository.EpgPlaylistUseCase) -> Unit,
     onUpdatePlaylistAutoRefreshProgrammes: () -> Unit,
@@ -182,12 +186,18 @@ private fun PlaylistConfigurationScreen(
     var userAgent: String by remember(playlist.userAgent) {
         mutableStateOf(playlist.userAgent ?: DEFAULT_USER_AGENT)
     }
+    var showLive by remember(playlist.showLive) { mutableStateOf(playlist.showLive) }
+    var showVod by remember(playlist.showVod) { mutableStateOf(playlist.showVod) }
+    var showSeries by remember(playlist.showSeries) { mutableStateOf(playlist.showSeries) }
 
-    val hasChanged by remember(playlist.title, playlist.displayTitle, playlist.userAgent) {
+    val hasChanged by remember(playlist.title, playlist.displayTitle, playlist.userAgent, playlist.showLive, playlist.showVod, playlist.showSeries) {
         derivedStateOf {
             title != playlist.title ||
                     displayTitle != (playlist.displayTitle ?: playlist.title) ||
-                    userAgent != (playlist.userAgent ?: DEFAULT_USER_AGENT)
+                    userAgent != (playlist.userAgent ?: DEFAULT_USER_AGENT) ||
+                    showLive != playlist.showLive ||
+                    showVod != playlist.showVod ||
+                    showSeries != playlist.showSeries
         }
     }
     var showUnsubscribeConfirm by remember { mutableStateOf(false) }
@@ -266,6 +276,34 @@ private fun PlaylistConfigurationScreen(
                         placeholder = stringResource(string.feat_playlist_configuration_user_agent).title(),
                         onValueChange = { userAgent = it }
                     )
+                }
+
+                if (playlist.source == DataSource.Xtream) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = "Visibility",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                            )
+                            VisibilityToggleRow(
+                                label = "Live",
+                                checked = showLive,
+                                onCheckedChange = { if (it || showVod || showSeries) showLive = it }
+                            )
+                            VisibilityToggleRow(
+                                label = "VOD",
+                                checked = showVod,
+                                onCheckedChange = { if (it || showLive || showSeries) showVod = it }
+                            )
+                            VisibilityToggleRow(
+                                label = "Series",
+                                checked = showSeries,
+                                onCheckedChange = { if (it || showLive || showVod) showSeries = it }
+                            )
+                        }
+                    }
                 }
 
                 item {
@@ -361,6 +399,9 @@ private fun PlaylistConfigurationScreen(
                         val effectiveDisplayTitle = displayTitle.ifBlank { title }
                         if (effectiveDisplayTitle != (playlist.displayTitle ?: playlist.title)) onUpdateDisplayTitle(effectiveDisplayTitle)
                         if (userAgent != (playlist.userAgent ?: DEFAULT_USER_AGENT)) onUpdatePlaylistUserAgent(userAgent)
+                        if (showLive != playlist.showLive || showVod != playlist.showVod || showSeries != playlist.showSeries) {
+                            onUpdateVisibility(showLive, showVod, showSeries)
+                        }
                     },
                     modifier = Modifier.padding(spacing.medium)
                 ) {
@@ -371,5 +412,29 @@ private fun PlaylistConfigurationScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun VisibilityToggleRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
