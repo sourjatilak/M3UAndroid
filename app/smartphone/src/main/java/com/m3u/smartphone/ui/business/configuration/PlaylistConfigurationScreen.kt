@@ -172,10 +172,10 @@ private fun PlaylistConfigurationScreen(
 ) {
     val spacing = LocalSpacing.current
 
-    var title: String by remember(playlist.title) { mutableStateOf(playlist.title) }
-    var userAgent: String by remember(playlist.userAgent) { mutableStateOf(playlist.userAgent.orEmpty()) }
+    var title: String by remember { mutableStateOf(playlist.title) }
+    var userAgent: String by remember { mutableStateOf(playlist.userAgent.orEmpty()) }
 
-    val hasChanged by remember(playlist.title, playlist.userAgent) {
+    val hasChanged by remember {
         derivedStateOf { title != playlist.title || userAgent != playlist.userAgent.orEmpty() }
     }
     var showUnsubscribeConfirm by remember { mutableStateOf(false) }
