@@ -791,10 +791,15 @@ class PlayerManagerImpl @Inject constructor(
      * Read user-agent appended to the channelUrl.
      * If there is no result from url, it will use playlist user-agent instead.
      */
-    private fun getUserAgent(channelUrl: String, playlist: Playlist?): String? {
+    private fun getUserAgent(channelUrl: String, playlist: Playlist?): String {
         val kodiUrlOptions = channelUrl.readKodiUrlOptions()
-        val userAgent = kodiUrlOptions[KodiAdaptions.HTTP_OPTION_UA] ?: playlist?.userAgent
-        return userAgent
+        return kodiUrlOptions[KodiAdaptions.HTTP_OPTION_UA]
+            ?: playlist?.userAgent
+            ?: DEFAULT_USER_AGENT
+    }
+
+    companion object {
+        const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
     private suspend fun getChannelPreference(channelUrl: String): ChannelPreference? {
