@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -386,9 +385,14 @@ private fun PlaylistScreen(
         mutableStateOf(initial ?: categories.firstOrNull().orEmpty())
     }
 
-    var currentPageState by remember { mutableStateOf<LazyStaggeredGridState?>(null) }
+    val state = rememberLazyStaggeredGridState()
+    LaunchedEffect(Unit) {
+        snapshotFlow { state.isAtTop }
+            .onEach { isAtTopState.value = it }
+            .launchIn(this)
+    }
     EventHandler(scrollUp) {
-        currentPageState?.scrollToItem(0)
+        state.scrollToItem(0)
     }
     val orientation = configuration.orientation
     val actualRowCount = remember(orientation, rowCount) {
@@ -452,22 +456,9 @@ private fun PlaylistScreen(
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest)
         ) { index ->
             val (_, channels) = entries[index]
-            val pageState = rememberLazyStaggeredGridState()
-
-            LaunchedEffect(pagerState.settledPage == index) {
-                if (pagerState.settledPage == index) {
-                    currentPageState = pageState
-                }
-            }
-
-            LaunchedEffect(pageState) {
-                snapshotFlow { pageState.isAtTop }
-                    .onEach { if (pagerState.settledPage == index) isAtTopState.value = it }
-                    .launchIn(this)
-            }
 
             ChannelGallery(
-                state = pageState,
+                state = state,
                 rowCount = actualRowCount,
                 channels = channels,
                 zapping = zapping,
