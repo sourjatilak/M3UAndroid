@@ -48,6 +48,8 @@ interface PlaylistRepository {
 
     suspend fun onUpdateDisplayTitle(url: String, displayTitle: String?)
 
+    suspend fun onUpdateVisibility(url: String, showLive: Boolean, showVod: Boolean, showSeries: Boolean)
+
     suspend fun backupOrThrow(uri: Uri)
 
     suspend fun restoreOrThrow(uri: Uri)
