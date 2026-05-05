@@ -132,6 +132,13 @@ class PlaylistConfigurationViewModel @Inject constructor(
         }
     }
 
+    fun onUpdateDisplayTitle(displayTitle: String) {
+        val playlistUrl = playlistUrl.value
+        viewModelScope.launch {
+            playlistRepository.onUpdateDisplayTitle(playlistUrl, displayTitle.ifBlank { null })
+        }
+    }
+
     fun onUpdatePlaylistUserAgent(userAgent: String?) {
         val playlistUrl = playlistUrl.value
         viewModelScope.launch {

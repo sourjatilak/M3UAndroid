@@ -168,6 +168,8 @@ private fun groupKeyOf(playlist: Playlist): String = when (playlist.source) {
 }
 
 private fun groupTitleOf(playlist: Playlist): String {
+    // Prefer user-set display title over the internal subscription title.
+    playlist.displayTitle?.let { if (it.isNotBlank()) return it }
     val raw = playlist.title.trim()
     if (raw.isEmpty()) return raw
     // Strip a trailing " live" / " vod" / " series" (case-insensitive) that the

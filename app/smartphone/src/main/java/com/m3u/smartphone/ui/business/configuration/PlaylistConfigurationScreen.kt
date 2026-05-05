@@ -117,6 +117,7 @@ internal fun PlaylistConfigurationRoute(
             expired = expired,
             xtreamUserInfo = xtreamUserInfo,
             onUpdatePlaylistTitle = viewModel::onUpdatePlaylistTitle,
+            onUpdateDisplayTitle = viewModel::onUpdateDisplayTitle,
             onUpdatePlaylistUserAgent = viewModel::onUpdatePlaylistUserAgent,
             onUpdateEpgPlaylist = viewModel::onUpdateEpgPlaylist,
             onUpdatePlaylistAutoRefreshProgrammes = viewModel::onUpdatePlaylistAutoRefreshProgrammes,
@@ -161,6 +162,7 @@ private fun PlaylistConfigurationScreen(
     expired: LocalDateTime?,
     xtreamUserInfo: Resource<XtreamInfo.UserInfo>,
     onUpdatePlaylistTitle: (String) -> Unit,
+    onUpdateDisplayTitle: (String) -> Unit,
     onUpdatePlaylistUserAgent: (String?) -> Unit,
     onUpdateEpgPlaylist: (PlaylistRepository.EpgPlaylistUseCase) -> Unit,
     onUpdatePlaylistAutoRefreshProgrammes: () -> Unit,
@@ -173,10 +175,15 @@ private fun PlaylistConfigurationScreen(
     val spacing = LocalSpacing.current
 
     var title: String by remember(playlist.title) { mutableStateOf(playlist.title) }
+    var displayTitle: String by remember(playlist.displayTitle) { mutableStateOf(playlist.displayTitle ?: playlist.title) }
     var userAgent: String by remember(playlist.userAgent) { mutableStateOf(playlist.userAgent.orEmpty()) }
 
-    val hasChanged by remember(playlist.title, playlist.userAgent) {
-        derivedStateOf { title != playlist.title || userAgent != playlist.userAgent.orEmpty() }
+    val hasChanged by remember(playlist.title, playlist.displayTitle, playlist.userAgent) {
+        derivedStateOf {
+            title != playlist.title ||
+                    displayTitle != (playlist.displayTitle ?: playlist.title) ||
+                    userAgent != playlist.userAgent.orEmpty()
+        }
     }
     var showUnsubscribeConfirm by remember { mutableStateOf(false) }
 
@@ -237,6 +244,14 @@ private fun PlaylistConfigurationScreen(
                         text = title,
                         placeholder = stringResource(string.feat_playlist_configuration_title).title(),
                         onValueChange = { title = it },
+                    )
+                }
+
+                item {
+                    PlaceholderField(
+                        text = displayTitle,
+                        placeholder = "Display Title",
+                        onValueChange = { displayTitle = it },
                     )
                 }
 
@@ -338,6 +353,7 @@ private fun PlaylistConfigurationScreen(
                 FloatingActionButton(
                     onClick = {
                         if (title != playlist.title) onUpdatePlaylistTitle(title)
+                        if (displayTitle != (playlist.displayTitle ?: playlist.title)) onUpdateDisplayTitle(displayTitle)
                         if (userAgent != playlist.userAgent) onUpdatePlaylistUserAgent(userAgent)
                     },
                     modifier = Modifier.padding(spacing.medium)

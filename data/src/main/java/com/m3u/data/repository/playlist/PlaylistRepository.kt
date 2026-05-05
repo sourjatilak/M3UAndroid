@@ -46,6 +46,8 @@ interface PlaylistRepository {
 
     suspend fun onUpdatePlaylistTitle(url: String, title: String)
 
+    suspend fun onUpdateDisplayTitle(url: String, displayTitle: String?)
+
     suspend fun backupOrThrow(uri: Uri)
 
     suspend fun restoreOrThrow(uri: Uri)
