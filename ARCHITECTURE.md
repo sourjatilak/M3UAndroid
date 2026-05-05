@@ -131,7 +131,7 @@ app:extension ───┬──► m3u-extension-api (external)
 | `business:playlist` | `PlaylistViewModel` | Channel browsing by category with paging, sorting, search, pinning/hiding categories, shortcut creation, zapping mode, thumbnail sync |
 | `business:channel` | `ChannelViewModel` | Active playback state, DLNA device discovery/casting, volume control, track selection (audio/video/subtitle), EPG programme guide, adjacent channel navigation, programme reminders, video recording |
 | `business:setting` | `SettingViewModel` | App preferences, playlist management, backup/restore, hidden channels, EPG configuration, appearance settings |
-| `business:playlist-configuration` | `PlaylistConfigurationViewModel` | Per-playlist settings: EPG manifest URLs, Xtream panel config, auto-sync, user agent |
+| `business:playlist-configuration` | `PlaylistConfigurationViewModel` | Per-playlist settings: EPG manifest URLs, Xtream panel config, auto-sync, user agent, display title, live/vod/series visibility toggles |
 | `business:extension` | `ExtensionViewModel` | Extension APK discovery, installation, management |
 | `business:search` | `GlobalSearchViewModel` | Universal cross-playlist search with debounced queries, category/channel/live/VOD result grouping, playlist URL resolution for category navigation |
 
@@ -180,6 +180,9 @@ MainActivity
               │     └── Setting → SettingRoute
               ├── playlistScreen → PlaylistScreen (search bar filters in-playlist, category navigation with auto-select)
               └── playlistConfigurationScreen → PlaylistConfigurationScreen
+                    • Display Title field (user-facing name shown on For You cards)
+                    • User Agent field (pre-filled with default Chrome UA)
+                    • Live/VOD/Series visibility toggles (Xtream only; at least one must stay on)
                     • Includes bottom "Remove / Unsubscribe" destructive action with
                       confirm dialog; for Xtream servers it removes all sibling rows
                       (Live + VOD + Series) in one action
@@ -454,12 +457,12 @@ Extensions are discovered at runtime, communicate via AIDL, and provide custom p
 
 ### Database
 
-`M3UDatabase` — Room database at version 20 with auto-migrations:
+`M3UDatabase` — Room database at version 22 with auto-migrations:
 
 | Entity | Table | Description |
 |--------|-------|-------------|
 | `Channel` | `streams` | Playable stream entries with URL, category, cover, DRM license info, favorite/hidden/seen state, EPG relation ID |
-| `Playlist` | `playlists` | Subscription sources (M3U URL, Xtream credentials, EPG). Tracks pinned/hidden categories, user agent, auto-refresh |
+| `Playlist` | `playlists` | Subscription sources (M3U URL, Xtream credentials, EPG). Tracks pinned/hidden categories, user agent, auto-refresh, display title, live/vod/series visibility |
 | `Programme` | — | EPG programme data (title, start/end times, description) linked to channels via relation ID |
 | `Episode` | — | Series episode metadata for Xtream VOD/Series content |
 | `ColorScheme` | — | User-defined color scheme overrides |
@@ -586,6 +589,8 @@ PlaylistConfigurationViewModel
 ├── expired: StateFlow<LocalDateTime?>                — EPG window's last-known end time
 ├── xtreamUserInfo: StateFlow<Resource<XtreamInfo.UserInfo>>
 ├── onUpdatePlaylistTitle / UserAgent / EpgPlaylist / AutoRefreshProgrammes
+├── onUpdateDisplayTitle(displayTitle)                — User-facing title for For You cards
+├── onUpdateVisibility(showLive, showVod, showSeries) — Propagates to all Xtream siblings
 ├── onSyncProgrammes / onCancelSyncProgrammes
 └── unsubscribe(onCompleted: () -> Unit)              — Removes the current playlist
                                                         and, for Xtream, all sibling rows

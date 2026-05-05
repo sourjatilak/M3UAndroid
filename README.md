@@ -44,13 +44,24 @@
 
 ## 📸 Screenshots
 
-| Mobile Experience | TV Experience |
-|--------------------|---------------|
-| <img src=".github/images/phone/deviceframes.png" width="400"> | <img src=".github/images/tv/playlist.png" width="400"> |
-|  | <img src=".github/images/tv/foryou.png" width="400"> |
-|  | <img src=".github/images/tv/player.png" width="400"> |
+### Mobile Experience
 
-> TV UI is going to be remade in the future...
+| | |
+|---|---|
+| <img src=".github/images/phone/screenshot1.png" width="250"> | <img src=".github/images/phone/screenshot2.png" width="250"> |
+| <img src=".github/images/phone/screenshot3.png" width="250"> | <img src=".github/images/phone/screenshot4.png" width="250"> |
+| <img src=".github/images/phone/screenshot5.png" width="250"> | <img src=".github/images/phone/screenshot6.png" width="250"> |
+| <img src=".github/images/phone/screenshot7.png" width="250"> | |
+
+### TV Experience
+
+> 🚧 Coming soon — TV UI is being remade.
+
+<!--
+<img src=".github/images/tv/playlist.png" width="400">
+<img src=".github/images/tv/foryou.png" width="400">
+<img src=".github/images/tv/player.png" width="400">
+-->
 
 ## ⬇️ Download Now
 
