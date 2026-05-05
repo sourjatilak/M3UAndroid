@@ -80,6 +80,8 @@ import com.m3u.smartphone.ui.material.model.LocalSpacing
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.datetime.LocalDateTime
 
+private const val DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 @Composable
 internal fun PlaylistConfigurationRoute(
     modifier: Modifier = Modifier,
@@ -177,13 +179,15 @@ private fun PlaylistConfigurationScreen(
 
     var title: String by remember(playlist.title) { mutableStateOf(playlist.title) }
     var displayTitle: String by remember(playlist.displayTitle) { mutableStateOf(playlist.displayTitle ?: playlist.title) }
-    var userAgent: String by remember(playlist.userAgent) { mutableStateOf(playlist.userAgent.orEmpty()) }
+    var userAgent: String by remember(playlist.userAgent) {
+        mutableStateOf(playlist.userAgent ?: DEFAULT_USER_AGENT)
+    }
 
     val hasChanged by remember(playlist.title, playlist.displayTitle, playlist.userAgent) {
         derivedStateOf {
             title != playlist.title ||
                     displayTitle != (playlist.displayTitle ?: playlist.title) ||
-                    userAgent != playlist.userAgent.orEmpty()
+                    userAgent != (playlist.userAgent ?: DEFAULT_USER_AGENT)
         }
     }
     var showUnsubscribeConfirm by remember { mutableStateOf(false) }
@@ -354,8 +358,9 @@ private fun PlaylistConfigurationScreen(
                 FloatingActionButton(
                     onClick = {
                         if (title != playlist.title) onUpdatePlaylistTitle(title)
-                        if (displayTitle != (playlist.displayTitle ?: playlist.title)) onUpdateDisplayTitle(displayTitle)
-                        if (userAgent != playlist.userAgent) onUpdatePlaylistUserAgent(userAgent)
+                        val effectiveDisplayTitle = displayTitle.ifBlank { title }
+                        if (effectiveDisplayTitle != (playlist.displayTitle ?: playlist.title)) onUpdateDisplayTitle(effectiveDisplayTitle)
+                        if (userAgent != (playlist.userAgent ?: DEFAULT_USER_AGENT)) onUpdatePlaylistUserAgent(userAgent)
                     },
                     modifier = Modifier.padding(spacing.medium)
                 ) {
