@@ -172,11 +172,11 @@ private fun PlaylistConfigurationScreen(
 ) {
     val spacing = LocalSpacing.current
 
-    var title: String by remember { mutableStateOf(playlist.title) }
-    var userAgent: String by remember { mutableStateOf(playlist.userAgent.orEmpty()) }
+    var editingTitle: String by remember(playlist.url) { mutableStateOf(playlist.title) }
+    var editingUserAgent: String by remember(playlist.url) { mutableStateOf(playlist.userAgent.orEmpty()) }
 
     val hasChanged by remember {
-        derivedStateOf { title != playlist.title || userAgent != playlist.userAgent.orEmpty() }
+        derivedStateOf { editingTitle != playlist.title || editingUserAgent != playlist.userAgent.orEmpty() }
     }
     var showUnsubscribeConfirm by remember { mutableStateOf(false) }
 
@@ -234,17 +234,17 @@ private fun PlaylistConfigurationScreen(
             ) {
                 item {
                     PlaceholderField(
-                        text = title,
+                        text = editingTitle,
                         placeholder = stringResource(string.feat_playlist_configuration_title).title(),
-                        onValueChange = { title = it },
+                        onValueChange = { editingTitle = it },
                     )
                 }
 
                 item {
                     PlaceholderField(
-                        text = userAgent,
+                        text = editingUserAgent,
                         placeholder = stringResource(string.feat_playlist_configuration_user_agent).title(),
-                        onValueChange = { userAgent = it }
+                        onValueChange = { editingUserAgent = it }
                     )
                 }
 
@@ -337,8 +337,8 @@ private fun PlaylistConfigurationScreen(
             ) {
                 FloatingActionButton(
                     onClick = {
-                        if (title != playlist.title) onUpdatePlaylistTitle(title)
-                        if (userAgent != playlist.userAgent) onUpdatePlaylistUserAgent(userAgent)
+                        if (editingTitle != playlist.title) onUpdatePlaylistTitle(editingTitle)
+                        if (editingUserAgent != playlist.userAgent) onUpdatePlaylistUserAgent(editingUserAgent)
                     },
                     modifier = Modifier.padding(spacing.medium)
                 ) {
