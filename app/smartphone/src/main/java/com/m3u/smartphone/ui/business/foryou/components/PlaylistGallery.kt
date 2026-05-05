@@ -75,14 +75,11 @@ internal fun PlaylistGallery(
     }
 
     // Collapse Xtream sub-playlists sharing the same server into wrapper cards.
-    // Remembered against the raw inputs so we don't regroup on every scroll.
-    val groups = remember(playlists, subscribingPlaylistUrls, refreshingEpgUrls) {
-        groupPlaylists(
-            playlists = playlists,
-            subscribingPlaylistUrls = subscribingPlaylistUrls,
-            refreshingEpgUrls = refreshingEpgUrls,
-        )
-    }
+    val groups = groupPlaylists(
+        playlists = playlists,
+        subscribingPlaylistUrls = subscribingPlaylistUrls,
+        refreshingEpgUrls = refreshingEpgUrls,
+    )
 
     LazyVerticalGrid(
         state = state,
