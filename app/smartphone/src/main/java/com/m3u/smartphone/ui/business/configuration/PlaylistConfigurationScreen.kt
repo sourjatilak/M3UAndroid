@@ -72,6 +72,7 @@ import com.m3u.smartphone.ui.business.configuration.components.XtreamPanel
 import com.m3u.smartphone.ui.common.helper.LocalHelper
 import com.m3u.smartphone.ui.common.helper.Metadata
 import com.m3u.smartphone.ui.material.components.Background
+import com.m3u.smartphone.ui.material.components.EditableField
 import com.m3u.smartphone.ui.material.components.PlaceholderField
 import com.m3u.smartphone.ui.material.ktx.checkPermissionOrRationale
 import com.m3u.smartphone.ui.material.model.LocalHazeState
@@ -248,7 +249,7 @@ private fun PlaylistConfigurationScreen(
                 }
 
                 item {
-                    PlaceholderField(
+                    EditableField(
                         text = displayTitle,
                         placeholder = "Display Title",
                         onValueChange = { displayTitle = it },
