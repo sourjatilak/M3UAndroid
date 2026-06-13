@@ -71,7 +71,7 @@ import androidx.paging.PagingData
 import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
 import com.m3u.core.foundation.architecture.preferences.preferenceOf
 import com.m3u.core.foundation.wrapper.eventOf
-import com.m3u.data.database.model.Channel
+import com.m3u.business.playlist.ChannelWithProgramme
 import com.m3u.data.service.MediaCommand
 import com.m3u.data.tv.model.RemoteDirection
 import com.m3u.business.setting.PresetImportViewModel
@@ -119,7 +119,7 @@ fun App(
 @Composable
 private fun AppImpl(
     navController: NavHostController,
-    channels: Flow<PagingData<Channel>>,
+    channels: Flow<PagingData<ChannelWithProgramme>>,
     isRemoteControlSheetVisible: Boolean,
     remoteControlSheetValue: RemoteControlSheetValue,
     openRemoteControlSheet: () -> Unit,

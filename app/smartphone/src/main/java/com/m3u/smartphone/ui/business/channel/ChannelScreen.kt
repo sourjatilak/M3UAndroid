@@ -100,7 +100,7 @@ fun ChannelRoute(
     val channel by viewModel.channel.collectAsStateWithLifecycle()
     val adjacentChannels by viewModel.adjacentChannels.collectAsStateWithLifecycle()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
-    val devices = viewModel.devices
+    val devices by viewModel.devices.collectAsStateWithLifecycle()
     val isDevicesVisible by viewModel.isDevicesVisible.collectAsStateWithLifecycle()
     val searching by viewModel.searching.collectAsStateWithLifecycle()
 
@@ -347,12 +347,12 @@ fun ChannelRoute(
 
     FormatsBottomSheet(
         visible = choosing,
-        formats = tracks,
-        selectedFormats = selectedFormats,
+        tracks = tracks,
+        selectedTracks = selectedFormats,
         maskState = maskState,
         onDismiss = { choosing = false },
-        onChooseTrack = { type, format ->
-            viewModel.chooseTrack(type, format)
+        onChooseTrack = { track ->
+            viewModel.chooseTrack(track)
         },
         onClearTrack = { type ->
             viewModel.clearTrack(type)

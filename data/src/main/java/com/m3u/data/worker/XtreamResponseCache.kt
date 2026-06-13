@@ -2,7 +2,7 @@ package com.m3u.data.worker
 
 import android.content.Context
 import com.m3u.data.parser.xtream.XtreamInput
-import com.m3u.data.parser.xtream.XtreamParser
+import dev.oxyroid.parser.xtream.XtreamParser
 import com.m3u.data.database.model.DataSource
 import okhttp3.OkHttpClient
 import okhttp3.Request

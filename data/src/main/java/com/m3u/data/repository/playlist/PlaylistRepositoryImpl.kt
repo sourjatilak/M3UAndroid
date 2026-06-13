@@ -25,10 +25,11 @@ import com.m3u.data.database.model.toMap
 import com.m3u.data.parser.m3u.M3UData
 import com.m3u.data.parser.m3u.M3UParser
 import com.m3u.data.parser.m3u.toChannel
-import com.m3u.data.parser.xtream.XtreamChannelInfo
+import com.m3u.data.parser.xtream.XtreamEpisodeInfo
 import com.m3u.data.parser.xtream.XtreamInput
 import com.m3u.data.parser.xtream.XtreamLive
 import com.m3u.data.parser.xtream.XtreamParser
+import com.m3u.data.parser.xtream.toXtreamEpisodeInfo
 import com.m3u.data.parser.xtream.XtreamSerial
 import com.m3u.data.parser.xtream.XtreamVod
 import com.m3u.data.parser.xtream.asChannel
@@ -538,14 +539,14 @@ internal class PlaylistRepositoryImpl @Inject constructor(
             .map { it.toMap() }
             .catch { emit(emptyMap()) }
 
-    override suspend fun readEpisodesOrThrow(series: Channel): List<XtreamChannelInfo.Episode> {
+    override suspend fun readEpisodesOrThrow(series: Channel): List<XtreamEpisodeInfo> {
         val playlist = checkNotNull(get(series.playlistUrl)) { "playlist is not exist" }
         val seriesInfo = xtreamParser.getSeriesInfoOrThrow(
             input = XtreamInput.decodeFromPlaylistUrl(playlist.url),
             seriesId = Url(series.url).rawSegments.last().toInt()
         )
         // fixme: do not flatmap
-        return seriesInfo.episodes.flatMap { it.value }
+        return seriesInfo.episodes.flatMap { it.value }.map { it.toXtreamEpisodeInfo() }
     }
 
     override suspend fun deleteEpgPlaylistAndProgrammes(epgUrl: String) {

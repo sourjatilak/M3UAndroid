@@ -28,6 +28,8 @@ android {
 
 dependencies {
     implementation(project(":core:foundation"))
+    implementation("dev.oxyroid.parser:m3u")
+    api("dev.oxyroid.parser:xtream")
     implementation(libs.m3u.extension.api)
     implementation(libs.m3u.extension.annotation)
     ksp(libs.m3u.extension.processor)

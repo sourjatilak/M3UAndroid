@@ -16,6 +16,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
+import androidx.paging.map as pagingMap
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
@@ -35,7 +36,7 @@ import com.m3u.data.database.model.Channel
 import com.m3u.data.database.model.Playlist
 import com.m3u.data.database.model.Programme
 import com.m3u.data.database.model.isSeries
-import com.m3u.data.parser.xtream.XtreamChannelInfo
+import com.m3u.data.parser.xtream.XtreamEpisodeInfo
 import com.m3u.data.repository.channel.ChannelRepository
 import com.m3u.data.repository.media.MediaRepository
 import com.m3u.data.repository.playlist.PlaylistRepository
@@ -47,13 +48,15 @@ import com.m3u.data.worker.SubscriptionWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -61,14 +64,19 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+
+@Immutable
+data class ChannelWithProgramme(
+    val channel: Channel,
+    val programme: Programme?,
+)
 
 @HiltViewModel
 class PlaylistViewModel @Inject constructor(
@@ -211,10 +219,6 @@ class PlaylistViewModel @Inject constructor(
         }
     }
 
-    suspend fun getProgrammeCurrently(channelId: Int): Programme? {
-        return programmeRepository.getProgrammeCurrently(channelId)
-    }
-
     private val sortIndex: MutableStateFlow<Int> = MutableStateFlow(0)
 
     val sort: StateFlow<Sort> = sortIndex
@@ -248,12 +252,7 @@ class PlaylistViewModel @Inject constructor(
             if (sort == Sort.MIXED) flowOf(emptyList())
             else playlistRepository.observeCategoriesByPlaylistUrlIgnoreHidden(playlistUrl, query)
         }
-            .let { flow ->
-                merge(
-                    flow.take(1),
-                    flow.drop(1).debounce(1.seconds)
-                )
-            }
+            .debounceAfterFirst(1.seconds)
             .stateIn(
                 scope = viewModelScope,
                 initialValue = emptyList(),
@@ -298,16 +297,33 @@ class PlaylistViewModel @Inject constructor(
                 started = SharingStarted.Lazily
             )
 
-    val channels: StateFlow<Map<String, Flow<PagingData<Channel>>>> = combine(
+    private val currentProgrammes: StateFlow<Map<String, Programme>> = playlistUrl
+        .flatMapLatest { playlistUrl ->
+            channelRepository.observeRelationIdsByPlaylistUrl(playlistUrl)
+                .map { it.toSet() }
+                .distinctUntilChanged()
+                .debounceAfterFirst(1.seconds)
+                .mapLatest {
+                    programmeRepository.getProgrammesCurrently(playlistUrl)
+                }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            initialValue = emptyMap(),
+            started = SharingStarted.WhileSubscribed(5_000L)
+        )
+
+    private val channelPages: StateFlow<Map<String, Flow<PagingData<Channel>>>> = combine(
         playlistUrl,
         categories,
-        query, sort
+        query,
+        sort
     ) { playlistUrl, categories, query, sort ->
         ChannelParameters(
             playlistUrl = playlistUrl,
             query = query,
             sort = sort,
-            categories = categories
+            categories = categories,
         )
     }
         .mapLatest { (playlistUrl, query, sort, categories) ->
@@ -344,6 +360,46 @@ class PlaylistViewModel @Inject constructor(
             initialValue = emptyMap(),
             started = SharingStarted.Lazily
         )
+
+    val channels: StateFlow<Map<String, Flow<PagingData<ChannelWithProgramme>>>> = combine(
+        channelPages,
+        currentProgrammes
+    ) { pages, currentProgrammes ->
+        pages.mapValues { (_, flow) ->
+            flow.withProgrammes(currentProgrammes)
+        }
+    }
+        .stateIn(
+            scope = viewModelScope,
+            initialValue = emptyMap(),
+            started = SharingStarted.Lazily
+        )
+
+    private fun Flow<PagingData<Channel>>.withProgrammes(
+        currentProgrammes: Map<String, Programme>
+    ): Flow<PagingData<ChannelWithProgramme>> {
+        return map { data ->
+            // Recreate the transform so paged channel items show refreshed programme metadata.
+            data.pagingMap { channel ->
+                ChannelWithProgramme(
+                    channel = channel,
+                    programme = channel.relationId?.let(currentProgrammes::get)
+                )
+            }
+        }
+    }
+
+    private fun <T> Flow<T>.debounceAfterFirst(timeout: Duration): Flow<T> = channelFlow {
+        var isFirst = true
+        collectLatest { value ->
+            if (isFirst) {
+                isFirst = false
+            } else {
+                delay(timeout)
+            }
+            send(value)
+        }
+    }
 
     val pinnedCategories: StateFlow<List<String>> = playlist
         .map { it?.pinnedCategories ?: emptyList() }
@@ -395,7 +451,7 @@ class PlaylistViewModel @Inject constructor(
     val series = MutableStateFlow<Channel?>(null)
     val seriesReplay = MutableStateFlow(0)
 
-    val episodes: StateFlow<Resource<List<XtreamChannelInfo.Episode>>> = series
+    val episodes: StateFlow<Resource<List<XtreamEpisodeInfo>>> = series
         .combine(seriesReplay) { series, _ -> series }
         .flatMapLatest { series ->
             if (series == null) flow {}

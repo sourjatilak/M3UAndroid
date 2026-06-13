@@ -9,9 +9,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.map as pagingMap
 import androidx.work.WorkManager
+import com.m3u.business.playlist.ChannelWithProgramme
 import com.m3u.data.api.TvApiDelegate
-import com.m3u.data.database.model.Channel
 import com.m3u.data.repository.channel.ChannelRepository
 import com.m3u.data.repository.playlist.PlaylistRepository
 import com.m3u.data.repository.tv.ConnectionToTvValue
@@ -44,7 +45,7 @@ class AppViewModel @Inject constructor(
     private val tvRepository: TvRepository,
     private val tvApi: TvApiDelegate,
 ) : ViewModel() {
-    val channels: Flow<PagingData<Channel>> = snapshotFlow { searchQuery.value }
+    val channels: Flow<PagingData<ChannelWithProgramme>> = snapshotFlow { searchQuery.value }
         .flatMapLatest { query ->
             if (query.isBlank()) {
                 emptyFlow()
@@ -58,6 +59,14 @@ class AppViewModel @Inject constructor(
                     pagingSourceFactory = { channelRepository.search(query) }
                 )
                     .flow
+                    .map { data ->
+                        data.pagingMap { channel ->
+                            ChannelWithProgramme(
+                                channel = channel,
+                                programme = null
+                            )
+                        }
+                    }
             }
         }
 

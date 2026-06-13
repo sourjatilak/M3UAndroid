@@ -25,10 +25,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -37,7 +34,6 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -64,6 +60,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.PagingData
 import com.google.accompanist.permissions.rememberPermissionState
+import com.m3u.business.playlist.ChannelWithProgramme
 import com.m3u.business.playlist.PlaylistViewModel
 import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
 import com.m3u.core.foundation.architecture.preferences.mutablePreferenceOf
@@ -74,7 +71,6 @@ import com.m3u.core.foundation.wrapper.Event
 import com.m3u.core.foundation.wrapper.Sort
 import com.m3u.core.foundation.wrapper.eventOf
 import com.m3u.data.database.model.Channel
-import com.m3u.data.database.model.Programme
 import com.m3u.data.database.model.isSeries
 import com.m3u.data.database.model.isVod
 import com.m3u.data.service.MediaCommand
@@ -110,20 +106,17 @@ import kotlinx.coroutines.launch
 internal fun PlaylistRoute(
     navigateToChannel: () -> Unit,
     modifier: Modifier = Modifier,
+    viewModel: PlaylistViewModel = hiltViewModel(),
+    contentPadding: PaddingValues = PaddingValues(),
     initialCategory: String? = null,
     searchQuery: String = "",
-    viewModel: PlaylistViewModel = hiltViewModel(),
-    contentPadding: PaddingValues = PaddingValues()
 ) {
+    LaunchedEffect(searchQuery) { viewModel.query.value = searchQuery }
+
     val context = LocalContext.current
     val helper = LocalHelper.current
     val coroutineScope = rememberCoroutineScope()
     val colorScheme = MaterialTheme.colorScheme
-
-    // Sync global search bar query into playlist filter
-    LaunchedEffect(searchQuery) {
-        viewModel.query.value = searchQuery
-    }
 
     val autoRefreshChannels by preferenceOf(PreferencesKeys.AUTO_REFRESH_CHANNELS)
     var rowCount by mutablePreferenceOf(PreferencesKeys.ROW_COUNT)
@@ -133,7 +126,7 @@ internal fun PlaylistRoute(
     val playlistUrl by viewModel.playlistUrl.collectAsStateWithLifecycle()
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
 
-    val channels: Map<String, Flow<PagingData<Channel>>> by viewModel.channels.collectAsStateWithLifecycle(
+    val channels: Map<String, Flow<PagingData<ChannelWithProgramme>>> by viewModel.channels.collectAsStateWithLifecycle(
         minActiveState = Lifecycle.State.RESUMED
     )
 
@@ -150,9 +143,6 @@ internal fun PlaylistRoute(
 
     val query by viewModel.query.collectAsStateWithLifecycle()
     val scrollUp by viewModel.scrollUp.collectAsStateWithLifecycle()
-
-    val categoryPrefixes by viewModel.categoryPrefixes.collectAsStateWithLifecycle()
-    val selectedPrefix by viewModel.prefixFilter.collectAsStateWithLifecycle()
 
     val writeExternalPermission =
         rememberPermissionState(Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -183,73 +173,69 @@ internal fun PlaylistRoute(
     }
 
     PlaylistScreen(
-        title = playlist?.title.orEmpty(),
-        query = query,
-        onQuery = { viewModel.query.value = it },
-        rowCount = rowCount,
-        zapping = zapping,
-        channels = channels,
-        initialCategory = initialCategory,
-        pinnedCategories = pinnedCategories,
-        onPinOrUnpinCategory = { viewModel.onPinOrUnpinCategory(it) },
-        onHideCategory = { viewModel.onHideCategory(it) },
-        scrollUp = scrollUp,
-        sorts = sorts,
-        sort = sort,
-        onSort = { viewModel.sort(it) },
-        onPlayChannel = { channel ->
-            if (!isSeriesPlaylist) {
-                coroutineScope.launch {
-                    helper.play(MediaCommand.Common(channel.id))
-                    navigateToChannel()
+        state = PlaylistScreenState(
+            rowCount = rowCount,
+            zapping = zapping,
+            channels = channels,
+            pinnedCategories = pinnedCategories,
+            scrollUp = scrollUp,
+            sorts = sorts,
+            sort = sort,
+            refreshing = refreshing,
+            contentPadding = contentPadding,
+            isVodPlaylist = isVodPlaylist,
+            isSeriesPlaylist = isSeriesPlaylist,
+        ),
+        actions = PlaylistScreenActions(
+            onPinOrUnpinCategory = { viewModel.onPinOrUnpinCategory(it) },
+            onHideCategory = { viewModel.onHideCategory(it) },
+            onSort = { viewModel.sort(it) },
+            onPlayChannel = { channel ->
+                if (!isSeriesPlaylist) {
+                    coroutineScope.launch {
+                        helper.play(MediaCommand.Common(channel.id))
+                        navigateToChannel()
+                    }
+                } else {
+                    viewModel.series.value = channel
                 }
-            } else {
-                viewModel.series.value = channel
-            }
-        },
-        onScrollUp = { viewModel.scrollUp.value = eventOf(Unit) },
-        categoryPrefixes = categoryPrefixes,
-        selectedPrefix = selectedPrefix,
-        onPrefixSelected = { viewModel.prefixFilter.value = it },
-        refreshing = refreshing,
-        onRefresh = {
-            if (postNotificationPermission == null) {
-                viewModel.refresh()
-                return@PlaylistScreen
-            }
-            postNotificationPermission.checkPermissionOrRationale(
-                showRationale = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .apply {
-                            putExtra(
-                                Settings.EXTRA_APP_PACKAGE,
-                                helper.activityContext.packageName
-                            )
-                        }
-                    helper.activityContext.startActivity(intent)
-                },
-                block = {
+            },
+            onScrollUp = { viewModel.scrollUp.value = eventOf(Unit) },
+            onRefresh = {
+                if (postNotificationPermission == null) {
                     viewModel.refresh()
+                } else {
+                    postNotificationPermission.checkPermissionOrRationale(
+                        showRationale = {
+                            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .apply {
+                                    putExtra(
+                                        Settings.EXTRA_APP_PACKAGE,
+                                        helper.activityContext.packageName
+                                    )
+                                }
+                            helper.activityContext.startActivity(intent)
+                        },
+                        block = {
+                            viewModel.refresh()
+                        }
+                    )
                 }
-            )
-        },
-        contentPadding = contentPadding,
-        favourite = viewModel::favourite,
-        hide = viewModel::hide,
-        savePicture = { id ->
-            writeExternalPermission.checkPermissionOrRationale {
-                viewModel.savePicture(id)
-            }
-        },
-        createShortcut = { id -> viewModel.createShortcut(context, id) },
-        isVodPlaylist = isVodPlaylist,
-        isSeriesPlaylist = isSeriesPlaylist,
-        getProgrammeCurrently = { channelId -> viewModel.getProgrammeCurrently(channelId) },
-        reloadThumbnail = { channelUrl -> viewModel.reloadThumbnail(channelUrl) },
-        syncThumbnail = { channelUrl ->
-            /** disabled in smartphone because it will cost too much data*/
-            null
-        },
+            },
+            favourite = viewModel::favourite,
+            hide = viewModel::hide,
+            savePicture = { id ->
+                writeExternalPermission.checkPermissionOrRationale {
+                    viewModel.savePicture(id)
+                }
+            },
+            createShortcut = { id -> viewModel.createShortcut(context, id) },
+            reloadThumbnail = { channelUrl -> viewModel.reloadThumbnail(channelUrl) },
+            syncThumbnail = { channelUrl ->
+                /** disabled in smartphone because it will cost too much data*/
+                null
+            },
+        ),
         modifier = Modifier
             .fillMaxSize()
             .thenIf(godMode) {
@@ -292,43 +278,44 @@ internal fun PlaylistRoute(
     }
 }
 
+private data class PlaylistScreenState(
+    val rowCount: Int,
+    val zapping: Channel?,
+    val channels: Map<String, Flow<PagingData<ChannelWithProgramme>>>,
+    val pinnedCategories: List<String>,
+    val scrollUp: Event<Unit>,
+    val sorts: List<Sort>,
+    val sort: Sort,
+    val refreshing: Boolean,
+    val contentPadding: PaddingValues,
+    val isVodPlaylist: Boolean,
+    val isSeriesPlaylist: Boolean,
+)
+
+private data class PlaylistScreenActions(
+    val onPinOrUnpinCategory: (String) -> Unit,
+    val onHideCategory: (String) -> Unit,
+    val onSort: (Sort) -> Unit,
+    val onPlayChannel: (Channel) -> Unit,
+    val onScrollUp: () -> Unit,
+    val onRefresh: () -> Unit,
+    val favourite: (channelId: Int) -> Unit,
+    val hide: (channelId: Int) -> Unit,
+    val savePicture: (channelId: Int) -> Unit,
+    val createShortcut: (channelId: Int) -> Unit,
+    val reloadThumbnail: suspend (channelUrl: String) -> Uri?,
+    val syncThumbnail: suspend (channelUrl: String) -> Uri?,
+)
+
 @OptIn(InternalComposeApi::class)
 @Composable
 private fun PlaylistScreen(
-    title: String,
-    query: String,
-    onQuery: (String) -> Unit,
-    rowCount: Int,
-    zapping: Channel?,
-    channels: Map<String, Flow<PagingData<Channel>>>,
-    initialCategory: String?,
-    pinnedCategories: List<String>,
-    onPinOrUnpinCategory: (String) -> Unit,
-    onHideCategory: (String) -> Unit,
-    sorts: List<Sort>,
-    sort: Sort,
-    onSort: (Sort) -> Unit,
-    scrollUp: Event<Unit>,
-    categoryPrefixes: List<String>,
-    selectedPrefix: String?,
-    onPrefixSelected: (String?) -> Unit,
-    refreshing: Boolean,
-    onRefresh: () -> Unit,
-    onPlayChannel: (Channel) -> Unit,
-    onScrollUp: () -> Unit,
-    favourite: (channelId: Int) -> Unit,
-    hide: (channelId: Int) -> Unit,
-    savePicture: (channelId: Int) -> Unit,
-    createShortcut: (channelId: Int) -> Unit,
-    contentPadding: PaddingValues,
-    isVodPlaylist: Boolean,
-    isSeriesPlaylist: Boolean,
-    getProgrammeCurrently: suspend (channelId: Int) -> Programme?,
-    reloadThumbnail: suspend (channelUrl: String) -> Uri?,
-    syncThumbnail: suspend (channelUrl: String) -> Uri?,
+    state: PlaylistScreenState,
+    actions: PlaylistScreenActions,
     modifier: Modifier = Modifier
 ) {
-    val currentOnScrollUp by rememberUpdatedState(onScrollUp)
+    val currentOnScrollUp by rememberUpdatedState(actions.onScrollUp)
+    val currentOnRefresh by rememberUpdatedState(actions.onRefresh)
 
     val isAtTopState = remember { mutableStateOf(true) }
 
@@ -360,7 +347,7 @@ private fun PlaylistScreen(
     var mediaSheetValue: MediaSheetValue.PlaylistScreen by remember { mutableStateOf(MediaSheetValue.PlaylistScreen()) }
     var isSortSheetVisible by rememberSaveable { mutableStateOf(false) }
 
-    LifecycleResumeEffect(refreshing) {
+    LifecycleResumeEffect(state.refreshing) {
         Metadata.actions = buildList {
             Action(
                 icon = Icons.AutoMirrored.Rounded.Sort,
@@ -369,9 +356,9 @@ private fun PlaylistScreen(
             ).also { add(it) }
             Action(
                 icon = Icons.Rounded.Refresh,
-                enabled = !refreshing,
+                enabled = !state.refreshing,
                 contentDescription = "refresh",
-                onClick = onRefresh
+                onClick = currentOnRefresh
             ).also { add(it) }
         }
         onPauseOrDispose {
@@ -379,50 +366,39 @@ private fun PlaylistScreen(
         }
     }
 
-    val categories = remember(channels) { channels.map { it.key } }
-    var category by remember(categories, initialCategory) {
-        val initial = initialCategory?.takeIf { it in categories }
-        mutableStateOf(initial ?: categories.firstOrNull().orEmpty())
-    }
+    val categories = remember(state.channels) { state.channels.map { it.key } }
+    var category by remember(categories) { mutableStateOf(categories.firstOrNull().orEmpty()) }
 
-    val state = rememberLazyStaggeredGridState()
+    val gridState = rememberLazyStaggeredGridState()
     LaunchedEffect(Unit) {
-        snapshotFlow { state.isAtTop }
+        snapshotFlow { gridState.isAtTop }
             .onEach { isAtTopState.value = it }
             .launchIn(this)
     }
-    EventHandler(scrollUp) {
-        state.scrollToItem(0)
+    EventHandler(state.scrollUp) {
+        gridState.scrollToItem(0)
     }
     val orientation = configuration.orientation
-    val actualRowCount = remember(orientation, rowCount) {
+    val actualRowCount = remember(orientation, state.rowCount) {
         when (orientation) {
-            ORIENTATION_LANDSCAPE -> rowCount + 2
-            ORIENTATION_PORTRAIT -> rowCount
-            else -> rowCount
+            ORIENTATION_LANDSCAPE -> state.rowCount + 2
+            ORIENTATION_PORTRAIT -> state.rowCount
+            else -> state.rowCount
         }
     }
-    var isExpanded by remember(sort == Sort.MIXED) {
+    var isExpanded by remember(state.sort == Sort.MIXED) {
         mutableStateOf(false)
     }
     BackHandler(isExpanded) { isExpanded = false }
 
     var targetPageIndex: Event<Int> by remember { mutableStateOf(Event.Handled()) }
 
-    // Auto-scroll to initialCategory when categories load
-    LaunchedEffect(categories, initialCategory) {
-        if (initialCategory != null) {
-            val idx = categories.indexOf(initialCategory)
-            if (idx != -1) targetPageIndex = eventOf(idx)
-        }
-    }
-
     val tabs = @Composable {
         PlaylistTabRow(
             selectedCategory = category,
             categories = categories,
             isExpanded = isExpanded,
-            bottomContentPadding = contentPadding only WindowInsetsSides.Bottom,
+            bottomContentPadding = state.contentPadding only WindowInsetsSides.Bottom,
             onExpanded = { isExpanded = !isExpanded },
             onCategoryChanged = {
                 category = it
@@ -431,15 +407,15 @@ private fun PlaylistScreen(
                     ?.let { eventOf(it) }
                     ?: Event.Handled()
             },
-            pinnedCategories = pinnedCategories,
-            onPinOrUnpinCategory = onPinOrUnpinCategory,
-            onHideCategory = onHideCategory
+            pinnedCategories = state.pinnedCategories,
+            onPinOrUnpinCategory = actions.onPinOrUnpinCategory,
+            onHideCategory = actions.onHideCategory
         )
     }
 
     val gallery = @Composable {
-        val pagerState = rememberPagerState { channels.size }
-        val entries = channels.entries.toList()
+        val pagerState = rememberPagerState { state.channels.size }
+        val entries = state.channels.entries.toList()
         LaunchedEffect(entries) {
             snapshotFlow { pagerState.settledPage }
                 .collectLatest { index ->
@@ -458,38 +434,27 @@ private fun PlaylistScreen(
             val (_, channels) = entries[index]
 
             ChannelGallery(
-                state = state,
+                state = gridState,
                 rowCount = actualRowCount,
                 channels = channels,
-                zapping = zapping,
-                recently = sort == Sort.RECENTLY,
-                isVodOrSeriesPlaylist = isVodPlaylist || isSeriesPlaylist,
-                onClick = onPlayChannel,
-                contentPadding = contentPadding.minus(contentPadding.only(WindowInsetsSides.Top)),
+                zapping = state.zapping,
+                recently = state.sort == Sort.RECENTLY,
+                isVodOrSeriesPlaylist = state.isVodPlaylist || state.isSeriesPlaylist,
+                onClick = actions.onPlayChannel,
+                contentPadding = state.contentPadding.minus(state.contentPadding.only(WindowInsetsSides.Top)),
                 onLongClick = {
                     mediaSheetValue = MediaSheetValue.PlaylistScreen(it)
                 },
-                getProgrammeCurrently = getProgrammeCurrently,
-                reloadThumbnail = reloadThumbnail,
-                syncThumbnail = syncThumbnail,
+                reloadThumbnail = actions.reloadThumbnail,
+                syncThumbnail = actions.syncThumbnail,
             )
         }
     }
     Column(
         Modifier
-            .padding(contentPadding.minus(contentPadding.only(WindowInsetsSides.Bottom)))
+            .padding(state.contentPadding.minus(state.contentPadding.only(WindowInsetsSides.Bottom)))
             .then(modifier)
     ) {
-        AnimatedVisibility(
-            visible = categoryPrefixes.size > 1,
-            enter = fadeIn(animationSpec = tween(400)),
-        ) {
-            PrefixFilterRow(
-                prefixes = categoryPrefixes,
-                selectedPrefix = selectedPrefix,
-                onPrefixSelected = onPrefixSelected
-            )
-        }
         if (!isExpanded) {
             AnimatedVisibility(
                 visible = categories.size > 1,
@@ -510,69 +475,33 @@ private fun PlaylistScreen(
 
     SortBottomSheet(
         visible = isSortSheetVisible,
-        sort = sort,
-        sorts = sorts,
+        sort = state.sort,
+        sorts = state.sorts,
         sheetState = sheetState,
-        onChanged = onSort,
+        onChanged = actions.onSort,
         onDismissRequest = { isSortSheetVisible = false }
     )
 
     MediaSheet(
         value = mediaSheetValue,
         onFavoriteChannel = { channel ->
-            favourite(channel.id)
+            actions.favourite(channel.id)
             mediaSheetValue = MediaSheetValue.PlaylistScreen()
         },
         onHideChannel = { channel ->
-            hide(channel.id)
+            actions.hide(channel.id)
             mediaSheetValue = MediaSheetValue.PlaylistScreen()
         },
         onSaveChannelCover = { channel ->
-            savePicture(channel.id)
+            actions.savePicture(channel.id)
             mediaSheetValue = MediaSheetValue.PlaylistScreen()
         },
         onCreateShortcut = { channel ->
-            createShortcut(channel.id)
+            actions.createShortcut(channel.id)
             mediaSheetValue = MediaSheetValue.PlaylistScreen()
         },
         onDismissRequest = { mediaSheetValue = MediaSheetValue.PlaylistScreen() }
     )
-}
-
-@Composable
-private fun PrefixFilterRow(
-    prefixes: List<String>,
-    selectedPrefix: String?,
-    onPrefixSelected: (String?) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val spacing = LocalSpacing.current
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
-        contentPadding = PaddingValues(horizontal = spacing.medium),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(vertical = spacing.extraSmall)
-    ) {
-        item {
-            FilterChip(
-                selected = selectedPrefix == null,
-                onClick = { onPrefixSelected(null) },
-                label = { Text("All") }
-            )
-        }
-        items(prefixes) { prefix ->
-            FilterChip(
-                selected = selectedPrefix == prefix,
-                onClick = {
-                    onPrefixSelected(if (selectedPrefix == prefix) null else prefix)
-                },
-                label = { Text(prefix) }
-            )
-        }
-    }
 }
 
 @Composable
