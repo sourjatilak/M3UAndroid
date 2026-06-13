@@ -45,7 +45,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.google.accompanist.permissions.rememberPermissionState
 import com.m3u.business.setting.BackingUpAndRestoringState
@@ -66,7 +65,7 @@ import com.m3u.smartphone.ui.business.setting.components.LocalStorageSwitch
 import com.m3u.smartphone.ui.business.setting.components.RemoteControlSubscribeSwitch
 import com.m3u.smartphone.ui.common.helper.LocalHelper
 import com.m3u.smartphone.ui.material.components.HorizontalPagerIndicator
-import com.m3u.smartphone.ui.material.components.PlaceholderField
+import com.m3u.smartphone.ui.material.components.TvEditableField
 import com.m3u.smartphone.ui.material.components.SelectionsDefaults
 import com.m3u.smartphone.ui.material.ktx.checkPermissionOrRationale
 import com.m3u.smartphone.ui.material.ktx.textHorizontalLabel
@@ -379,11 +378,10 @@ private fun M3UInputContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.small)
     ) {
-        PlaceholderField(
+        TvEditableField(
             text = properties.titleState.value,
             placeholder = stringResource(string.feat_setting_placeholder_title).uppercase(),
             onValueChange = { properties.titleState.value = Uri.decode(it) },
-            imeAction = ImeAction.Next,
             modifier = Modifier.fillMaxWidth()
         )
         Crossfade(
@@ -391,7 +389,7 @@ private fun M3UInputContent(
             label = "url"
         ) { localStorage ->
             if (!localStorage) {
-                PlaceholderField(
+                TvEditableField(
                     text = properties.urlState.value,
                     placeholder = stringResource(string.feat_setting_placeholder_url).uppercase(),
                     onValueChange = { properties.urlState.value = Uri.decode(it) },
@@ -424,13 +422,13 @@ private fun EPGInputContent(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.small)
     ) {
-        PlaceholderField(
+        TvEditableField(
             text = properties.titleState.value,
             placeholder = stringResource(string.feat_setting_placeholder_epg_title).uppercase(),
             onValueChange = { properties.titleState.value = Uri.decode(it) },
             modifier = Modifier.fillMaxWidth()
         )
-        PlaceholderField(
+        TvEditableField(
             text = properties.epgState.value,
             placeholder = stringResource(string.feat_setting_placeholder_epg).uppercase(),
             onValueChange = { properties.epgState.value = Uri.decode(it) },
@@ -448,25 +446,25 @@ private fun XtreamInputContent(modifier: Modifier = Modifier) {
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.small)
     ) {
-        PlaceholderField(
+        TvEditableField(
             text = properties.titleState.value,
             placeholder = stringResource(string.feat_setting_placeholder_title).uppercase(),
             onValueChange = { properties.titleState.value = Uri.decode(it) },
             modifier = Modifier.fillMaxWidth()
         )
-        PlaceholderField(
+        TvEditableField(
             text = properties.basicUrlState.value,
             placeholder = stringResource(string.feat_setting_placeholder_basic_url).uppercase(),
             onValueChange = { properties.basicUrlState.value = it },
             modifier = Modifier.fillMaxWidth()
         )
-        PlaceholderField(
+        TvEditableField(
             text = properties.usernameState.value,
             placeholder = stringResource(string.feat_setting_placeholder_username).uppercase(),
             onValueChange = { properties.usernameState.value = it },
             modifier = Modifier.fillMaxWidth()
         )
-        PlaceholderField(
+        TvEditableField(
             text = properties.passwordState.value,
             placeholder = stringResource(string.feat_setting_placeholder_password).uppercase(),
             onValueChange = { properties.passwordState.value = it },

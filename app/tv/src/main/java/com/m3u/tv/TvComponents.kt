@@ -155,7 +155,7 @@ fun FocusFrame(
     focusRequester: FocusRequester? = null,
     focusedScale: Float = 1.08f,
     focusedBorderWidth: Dp = 4.dp,
-    focusedBorderColor: Color = Color.White,
+    focusedBorderColor: Color = TvColors.Focus,
     onFocus: () -> Unit = {},
     onKey: (KeyEvent) -> Boolean = { false },
     content: @Composable BoxScope.(focused: Boolean) -> Unit

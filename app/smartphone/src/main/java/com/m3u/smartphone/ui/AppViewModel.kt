@@ -23,10 +23,15 @@ import com.m3u.smartphone.ui.common.connect.RemoteControlSheetValue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -55,6 +60,20 @@ class AppViewModel @Inject constructor(
                     .flow
             }
         }
+
+    /**
+     * Emits true when at least one favorite channel exists. Drives the visibility
+     * of the Favorite tab in the root NavigationSuiteScaffold.
+     */
+    val hasFavorites: StateFlow<Boolean> = channelRepository
+        .observeAllFavorite()
+        .map { it.isNotEmpty() }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000L),
+            initialValue = false
+        )
 
     var searchQuery = mutableStateOf("")
     private fun refreshProgrammes() {

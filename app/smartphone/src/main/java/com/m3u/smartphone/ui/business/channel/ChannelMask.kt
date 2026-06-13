@@ -36,11 +36,13 @@ import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Cast
+import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PictureInPicture
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.ScreenRotationAlt
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -177,7 +179,6 @@ fun ChannelMask(
 
     val slider by preferenceOf(PreferencesKeys.SLIDER)
     val screencast by preferenceOf(PreferencesKeys.SCREENCAST)
-    val alwaysShowReplay by preferenceOf(PreferencesKeys.ALWAYS_SHOW_REPLAY)
     val screenRotating by preferenceOf(PreferencesKeys.SCREEN_ROTATING)
 
     val isStaticAndSeekable by remember(
@@ -351,9 +352,14 @@ fun ChannelMask(
                 val centerRole = MaskCenterRole.of(
                     playerState.playState,
                     playerState.isPlaying,
-                    alwaysShowReplay,
                     playerState.playerError
                 )
+                // ±10s seek is only meaningful for seekable, non-dynamic
+                // (i.e. VOD, not live) content, and only while the center
+                // control is Play/Pause (not Loading or error Replay).
+                val showSeekButtons = isStaticAndSeekable &&
+                        (centerRole == MaskCenterRole.Play || centerRole == MaskCenterRole.Pause)
+
                 Box(Modifier.size(36.dp)) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = !currentIsPanelExpanded && adjacentChannels?.prevId != null,
@@ -365,6 +371,27 @@ fun ChannelMask(
                             state = maskState,
                             navigateRole = MaskNavigateRole.Previous,
                             onClick = onPreviousChannelClick,
+                        )
+                    }
+                }
+
+                Box(Modifier.size(36.dp)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !currentIsPanelExpanded && showSeekButtons,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        MaskSeekButton(
+                            state = maskState,
+                            seekRole = MaskSeekRole.Rewind,
+                            onClick = {
+                                playerState.player?.let { p ->
+                                    val target = (p.currentPosition - SEEK_INCREMENT_MS)
+                                        .coerceAtLeast(0L)
+                                    p.seekTo(target)
+                                }
+                            },
                         )
                     }
                 }
@@ -385,6 +412,31 @@ fun ChannelMask(
                         )
                     }
                 }
+
+                Box(Modifier.size(36.dp)) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !currentIsPanelExpanded && showSeekButtons,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        MaskSeekButton(
+                            state = maskState,
+                            seekRole = MaskSeekRole.Forward,
+                            onClick = {
+                                playerState.player?.let { p ->
+                                    val duration = p.duration
+                                    val target = p.currentPosition + SEEK_INCREMENT_MS
+                                    val bounded = if (duration > 0L) {
+                                        target.coerceAtMost(duration)
+                                    } else target
+                                    p.seekTo(bounded)
+                                }
+                            },
+                        )
+                    }
+                }
+
                 Box(Modifier.size(36.dp)) {
                     androidx.compose.animation.AnimatedVisibility(
                         visible = !currentIsPanelExpanded && adjacentChannels?.nextId != null,
@@ -732,16 +784,14 @@ private enum class MaskCenterRole {
         fun of(
             @Player.State playState: Int,
             isPlaying: Boolean,
-            alwaysShowReplay: Boolean,
             playerError: Exception?,
-        ): MaskCenterRole = remember(playState, alwaysShowReplay, playerError, isPlaying) {
+        ): MaskCenterRole = remember(playState, playerError, isPlaying) {
             when {
                 playState == Player.STATE_BUFFERING -> Loading
-                alwaysShowReplay || playState in arrayOf(
-                    Player.STATE_IDLE,
-                    Player.STATE_ENDED
-                ) || playerError != null -> Replay
-
+                // Only surface the Replay/refresh icon on actual playback errors
+                // so the user has an explicit retry affordance. Idle/ended states
+                // rely on the play button and the scrubber for recovery.
+                playerError != null -> Replay
                 else -> if (!isPlaying) Play else Pause
             }
         }
@@ -751,5 +801,47 @@ private enum class MaskCenterRole {
 private enum class MaskNavigateRole {
     Next, Previous
 }
+
+private enum class MaskSeekRole {
+    Rewind, Forward
+}
+
+@Composable
+private fun MaskSeekButton(
+    state: MaskState,
+    seekRole: MaskSeekRole,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+        val isHovered by interactionSource.collectIsHoveredAsState()
+        val isDragged by interactionSource.collectIsDraggedAsState()
+        val isScaled by remember {
+            derivedStateOf { isPressed || isHovered || isDragged }
+        }
+        val scale by animateFloatAsState(if (isScaled) 0.85f else 1f)
+        MaskCircleButton(
+            state = state,
+            isSmallDimension = true,
+            icon = when (seekRole) {
+                MaskSeekRole.Rewind -> Icons.Rounded.Replay10
+                MaskSeekRole.Forward -> Icons.Rounded.Forward10
+            },
+            interactionSource = interactionSource,
+            onClick = onClick,
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+        )
+    }
+}
+
+private const val SEEK_INCREMENT_MS = 10_000L
 
 data class CwPosition(val milliseconds: Long)

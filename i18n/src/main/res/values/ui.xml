@@ -2,12 +2,14 @@
 <resources>
     <string name="ui_title_foryou">M3U</string>
     <string name="ui_title_favourite">Favorite</string>
+    <string name="ui_title_favourite_empty">No favorite added yet!</string>
     <string name="ui_title_setting">Settings</string>
     <string name="ui_destination_foryou">For You</string>
     <string name="ui_destination_favourite">Favorite</string>
     <string name="ui_destination_extension">Extension</string>
     <string name="ui_destination_setting">Settings</string>
     <string name="ui_destination_playlist">Playlist</string>
+    <string name="ui_destination_search">Search</string>
     <string name="tv_home_title">M3U TV</string>
     <string name="tv_home_subtitle">A focused living-room player for playlists, channels, favorites, and quick resume.</string>
     <string name="tv_action_resume">Resume watching</string>

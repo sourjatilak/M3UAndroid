@@ -1,5 +1,7 @@
 *.iml
 .gradle
+.idea
+patches
 /local.properties
 /.idea/caches
 /.idea/libraries
@@ -23,3 +25,4 @@ jks.txt
 __pycache__/
 *.pyc
 testing/mock-server/bin/
+RUN.md

@@ -2,7 +2,9 @@ name: Android CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "feature/searchfiltersort" ]
+    tags:
+      - 'v*'
     paths-ignore:
       - '**.md'
       - '**.txt'
@@ -46,28 +48,38 @@ jobs:
 
       - name: Build production app
         run: ./gradlew :app:smartphone:assembleRelease
+          -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.enabledRules=BaselineProfile
+          -Pandroid.testoptions.manageddevices.emulator.gpu="swiftshader_indirect"
+          -Pandroid.experimental.testOptions.managedDevices.emulator.showKernelLogging=true
+          -Pandroid.experimental.androidTest.numManagedDeviceShards=1
+          -Pandroid.experimental.testOptions.managedDevices.maxConcurrentDevices=1
 
-      - name: Build production TV app
-        run: ./gradlew :app:tv:assembleRelease
+#      - name: Build production tv app
+#        run: ./gradlew :app:tv:assembleRelease
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          if-no-files-found: error
+          name: universal-apk
           path: |
             app/smartphone/build/outputs/apk/release/*.apk
-            app/tv/build/outputs/apk/release/*.apk
+#            app/tv/build/outputs/apk/release/*.apk
 
-      - name: Upload To Telegram
-        if: github.event_name != 'pull_request'
-        uses: xireiki/channel-post@v1.0.10
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
         with:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-          chat_id: ${{ secrets.CHAT_ID }}
-          api_id: ${{ secrets.API_ID }}
-          api_hash: ${{ secrets.API_HASH }}
-          large_file: true
-          method: sendFile
-          path: |
-            app/smartphone/build/outputs/apk/release/*.apk
-            app/tv/build/outputs/apk/release/*.apk
+          name: universal-apk
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.apk
+

@@ -57,7 +57,19 @@ data class Playlist(
     val epgUrls: List<String> = emptyList(),
     @ColumnInfo(name = "auto_refresh_programmes", defaultValue = "0")
     @Exclude
-    val autoRefreshProgrammes: Boolean = false
+    val autoRefreshProgrammes: Boolean = false,
+    @ColumnInfo(name = "display_title", defaultValue = "NULL")
+    @Exclude
+    val displayTitle: String? = null,
+    @ColumnInfo(name = "show_live", defaultValue = "1")
+    @Exclude
+    val showLive: Boolean = true,
+    @ColumnInfo(name = "show_vod", defaultValue = "1")
+    @Exclude
+    val showVod: Boolean = true,
+    @ColumnInfo(name = "show_series", defaultValue = "1")
+    @Exclude
+    val showSeries: Boolean = true
 ) {
     companion object {
         const val URL_IMPORTED = "imported"

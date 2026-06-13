@@ -6,16 +6,20 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,8 +32,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.m3u.business.setting.PresetImportViewModel
+import com.m3u.core.foundation.components.CircularProgressIndicator
 import com.m3u.data.tv.model.keyCode
+import com.m3u.tv.screens.profile.AccountsSectionDialogButton
+import com.m3u.tv.theme.JetStreamCardShape
 
 @Composable
 fun App(
@@ -49,6 +58,55 @@ fun App(
         viewModel.releasePlayer()
         surface = TvSurface.Browse
     }
+
+    // Preset import dialog
+    val presetVm: PresetImportViewModel = hiltViewModel()
+    val showPresetDialog by presetVm.showDialog.collectAsState()
+    val isImporting by presetVm.importing.collectAsState()
+    val statusText by presetVm.statusText.collectAsState()
+    var dismissed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showPresetDialog) {
+        if (showPresetDialog) presetVm.importAll()
+    }
+
+    StandardDialog(
+        showDialog = showPresetDialog && !dismissed,
+        onDismissRequest = { dismissed = true },
+        confirmButton = {},
+        dismissButton = {
+            AccountsSectionDialogButton(
+                text = "Close",
+                shouldRequestFocus = true,
+                onClick = { dismissed = true }
+            )
+        },
+        title = {
+            Text(
+                text = "Loading Playlists",
+                modifier = Modifier.padding(start = 8.dp),
+                color = MaterialTheme.colorScheme.surface,
+                style = MaterialTheme.typography.headlineSmall
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                if (isImporting) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                }
+                Text(
+                    text = statusText,
+                    color = MaterialTheme.colorScheme.surface,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.onSurface,
+        shape = JetStreamCardShape
+    )
 
     BackHandler {
         if (surface == TvSurface.Player) {
