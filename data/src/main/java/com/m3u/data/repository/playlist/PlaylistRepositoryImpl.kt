@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
 import androidx.core.net.toUri
+import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkManager
 import com.m3u.core.foundation.architecture.preferences.PlaylistStrategy
 import com.m3u.core.foundation.architecture.preferences.PreferencesKeys
@@ -351,7 +352,7 @@ internal class PlaylistRepositoryImpl @Inject constructor(
         )
     }
 
-    override suspend fun refresh(url: String) {
+    override suspend fun refresh(url: String, force: Boolean) {
         val playlist = get(url) ?: run {
             timber.w("Playlist not found for url: $url")
             return
@@ -360,14 +361,15 @@ internal class PlaylistRepositoryImpl @Inject constructor(
             timber.w("Playlist is not refreshable: $playlist")
             return
         }
+        val policy = if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
 
         when (playlist.source) {
             DataSource.M3U -> {
-                SubscriptionWorker.m3u(workManager, playlist.title, url)
+                SubscriptionWorker.m3u(workManager, playlist.title, url, policy)
             }
 
             DataSource.EPG -> {
-                SubscriptionWorker.epg(workManager, url, true)
+                SubscriptionWorker.epg(workManager, url, true, policy)
             }
 
             DataSource.Xtream -> {
@@ -378,7 +380,8 @@ internal class PlaylistRepositoryImpl @Inject constructor(
                     url = url,
                     basicUrl = xtreamInput.basicUrl,
                     username = xtreamInput.username,
-                    password = xtreamInput.password
+                    password = xtreamInput.password,
+                    policy = policy
                 )
             }
 

@@ -40,7 +40,7 @@ interface PlaylistRepository {
 
     suspend fun insertEpgAsPlaylist(title: String, epg: String)
 
-    suspend fun refresh(url: String)
+    suspend fun refresh(url: String, force: Boolean = false)
 
     suspend fun unsubscribe(url: String): Playlist?
 

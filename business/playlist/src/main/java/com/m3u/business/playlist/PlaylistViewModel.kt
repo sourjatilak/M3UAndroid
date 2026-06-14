@@ -139,10 +139,10 @@ class PlaylistViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000)
         )
 
-    fun refresh() {
+    fun refresh(force: Boolean = false) {
         val url = playlistUrl.value
         viewModelScope.launch {
-            playlistRepository.refresh(url)
+            playlistRepository.refresh(url, force)
         }
     }
 

@@ -203,7 +203,7 @@ internal fun PlaylistRoute(
             onScrollUp = { viewModel.scrollUp.value = eventOf(Unit) },
             onRefresh = {
                 if (postNotificationPermission == null) {
-                    viewModel.refresh()
+                    viewModel.refresh(force = true)
                 } else {
                     postNotificationPermission.checkPermissionOrRationale(
                         showRationale = {
@@ -217,7 +217,7 @@ internal fun PlaylistRoute(
                             helper.activityContext.startActivity(intent)
                         },
                         block = {
-                            viewModel.refresh()
+                            viewModel.refresh(force = true)
                         }
                     )
                 }

@@ -11,6 +11,7 @@ import android.graphics.drawable.Icon
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
 import androidx.work.ForegroundInfo
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
@@ -268,9 +269,9 @@ class SubscriptionWorker @AssistedInject constructor(
         fun m3u(
             workManager: WorkManager,
             title: String,
-            url: String
+            url: String,
+            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
         ) {
-            workManager.cancelAllWorkByTag(url)
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
@@ -289,15 +290,15 @@ class SubscriptionWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-            workManager.enqueue(request)
+            workManager.enqueueUniqueWork("m3u:$url", policy, request)
         }
 
         fun epg(
             workManager: WorkManager,
             playlistUrl: String,
-            ignoreCache: Boolean
+            ignoreCache: Boolean,
+            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
         ) {
-            workManager.cancelAllWorkByTag(playlistUrl)
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
@@ -316,7 +317,7 @@ class SubscriptionWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-            workManager.enqueue(request)
+            workManager.enqueueUniqueWork("epg:$playlistUrl", policy, request)
         }
 
         fun xtream(
@@ -326,9 +327,8 @@ class SubscriptionWorker @AssistedInject constructor(
             basicUrl: String,
             username: String,
             password: String,
+            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
         ) {
-            workManager.cancelAllWorkByTag(url)
-            workManager.cancelAllWorkByTag(basicUrl)
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
@@ -390,7 +390,7 @@ class SubscriptionWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-            workManager.enqueue(request)
+            workManager.enqueueUniqueWork("xtream:$url", policy, request)
         }
 
         private val ATOMIC_NOTIFICATION_ID = AtomicInteger()
