@@ -252,7 +252,6 @@ class PlaylistViewModel @Inject constructor(
             if (sort == Sort.MIXED) flowOf(emptyList())
             else playlistRepository.observeCategoriesByPlaylistUrlIgnoreHidden(playlistUrl, query)
         }
-            .debounceAfterFirst(1.seconds)
             .stateIn(
                 scope = viewModelScope,
                 initialValue = emptyList(),
