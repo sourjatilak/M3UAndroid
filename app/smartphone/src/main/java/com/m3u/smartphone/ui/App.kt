@@ -342,6 +342,56 @@ private fun AppImpl(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.weight(1f))
+                    // Debug info icon — shows worker status when debug_config.json enables it
+                    val debugContext = LocalContext.current
+                    val showDebugOverlay = remember {
+                        try {
+                            val file = java.io.File(debugContext.filesDir, "debug_config.json")
+                            if (file.exists()) {
+                                val json = file.readText()
+                                json.contains("\"show_debug_overlay\"") && json.contains("true")
+                            } else false
+                        } catch (_: Exception) { false }
+                    }
+                    if (showDebugOverlay) {
+                        var showDebugDialog by remember { mutableStateOf(false) }
+                        val debugVm: AppViewModel = hiltViewModel()
+                        val workerInfos by debugVm.debugWorkerInfos.collectAsState()
+
+                        IconButton(onClick = { showDebugDialog = true }) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Debug info",
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        if (showDebugDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showDebugDialog = false },
+                                title = { Text("Worker Debug") },
+                                text = {
+                                    Column {
+                                        if (workerInfos.isEmpty()) {
+                                            Text("No active workers")
+                                        } else {
+                                            workerInfos.forEach { info ->
+                                                Text(
+                                                    text = info,
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    TextButton(onClick = { showDebugDialog = false }) {
+                                        Text("Close")
+                                    }
+                                }
+                            )
+                        }
+                    }
                     IconButton(onClick = {
                         navigateToDestination(Destination.Setting)
                         Events.settingDestination = eventOf(SettingDestination.Playlists)

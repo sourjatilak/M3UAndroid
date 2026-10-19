@@ -9,9 +9,4 @@ internal object SSLs {
             init(null, arrayOf(Certs.TrustAll), SecureRandom())
         }
     }
-    val SSLTrustAll: SSLContext by lazy {
-        SSLContext.getInstance("SSL").apply {
-            init(null, arrayOf(Certs.TrustAll), SecureRandom())
-        }
-    }
 }

@@ -47,6 +47,7 @@ import com.m3u.data.service.PlayerManager
 import com.m3u.data.worker.SubscriptionWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -65,6 +66,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -246,12 +248,13 @@ class PlaylistViewModel @Inject constructor(
         val categories: List<String>,
     )
 
-    @OptIn(FlowPreview::class)
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     private val allCategories: StateFlow<List<String>> =
         flatmapCombined(playlistUrl, query, sort) { playlistUrl, query, sort ->
             if (sort == Sort.MIXED) flowOf(emptyList())
             else playlistRepository.observeCategoriesByPlaylistUrlIgnoreHidden(playlistUrl, query)
         }
+            .sample(1.seconds)
             .stateIn(
                 scope = viewModelScope,
                 initialValue = emptyList(),

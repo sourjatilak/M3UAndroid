@@ -12,6 +12,14 @@
                   <project path="$PROJECT_DIR$/native-load-gradle-plugin" />
                 </projects>
               </build>
+              <build path="$PROJECT_DIR$/parser" name="parser">
+                <projects>
+                  <project path="$PROJECT_DIR$/parser" />
+                  <project path="$PROJECT_DIR$/parser/m3u" />
+                  <project path="$PROJECT_DIR$/parser/protocol" />
+                  <project path="$PROJECT_DIR$/parser/xtream" />
+                </projects>
+              </build>
             </builds>
           </compositeBuild>
         </compositeConfiguration>
@@ -35,6 +43,7 @@
             <option value="$PROJECT_DIR$/business/foryou" />
             <option value="$PROJECT_DIR$/business/playlist" />
             <option value="$PROJECT_DIR$/business/playlist-configuration" />
+            <option value="$PROJECT_DIR$/business/search" />
             <option value="$PROJECT_DIR$/business/setting" />
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/core/extension" />
@@ -45,6 +54,10 @@
             <option value="$PROJECT_DIR$/lint/annotation" />
             <option value="$PROJECT_DIR$/lint/processor" />
             <option value="$PROJECT_DIR$/native-load-gradle-plugin" />
+            <option value="$PROJECT_DIR$/parser" />
+            <option value="$PROJECT_DIR$/parser/m3u" />
+            <option value="$PROJECT_DIR$/parser/protocol" />
+            <option value="$PROJECT_DIR$/parser/xtream" />
             <option value="$PROJECT_DIR$/testing" />
             <option value="$PROJECT_DIR$/testing/device-benchmark" />
             <option value="$PROJECT_DIR$/testing/mock-server" />

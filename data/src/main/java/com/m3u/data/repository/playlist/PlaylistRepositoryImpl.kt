@@ -134,8 +134,26 @@ internal class PlaylistRepositoryImpl @Inject constructor(
                 url.isSupportedAndroidUrl() -> openAndroidInput(internalUrl)
                 else -> null
             }?.use { input ->
+                val buffered = input.buffered()
+                // Peek at the first line to extract url-tvg from the #EXTM3U header
+                buffered.mark(8192)
+                val firstLineBytes = ByteArray(8192)
+                var len = 0
+                var b = buffered.read()
+                while (b != -1 && b != '\n'.code && b != '\r'.code && len < firstLineBytes.size) {
+                    firstLineBytes[len++] = b.toByte()
+                    b = buffered.read()
+                }
+                buffered.reset()
+                val firstLine = String(firstLineBytes, 0, len, Charsets.UTF_8)
+                    .removePrefix("\uFEFF")
+                if (firstLine.startsWith("#EXTM3U", ignoreCase = true)) {
+                    extractUrlTvg(firstLine)?.let { epgUrl ->
+                        autoRegisterEpg(internalUrl, epgUrl)
+                    }
+                }
                 m3uParser
-                    .parse(input.buffered())
+                    .parse(buffered)
                     .filterNot {
                         val relationId = it.id
                         when {
@@ -638,5 +656,28 @@ internal class PlaylistRepositoryImpl @Inject constructor(
     private fun openAndroidInput(url: String): InputStream? {
         val uri = url.toUri()
         return context.contentResolver.openInputStream(uri)
+    }
+
+    private val urlTvgRegex = Regex("""url-tvg\s*=\s*"([^"]+)"""", RegexOption.IGNORE_CASE)
+
+    private fun extractUrlTvg(headerLine: String): String? {
+        return urlTvgRegex.find(headerLine)?.groupValues?.get(1)?.takeIf { it.isNotBlank() }
+    }
+
+    private suspend fun autoRegisterEpg(playlistUrl: String, epgUrl: String) {
+        // Ensure the EPG source exists as a playlist entry
+        if (playlistDao.get(epgUrl) == null) {
+            playlistDao.insertOrReplace(
+                Playlist(
+                    title = epgUrl.substringAfterLast('/').substringBefore('?').ifBlank { "EPG" },
+                    url = epgUrl,
+                    source = DataSource.EPG
+                )
+            )
+        }
+        // Associate it with the content playlist if not already
+        playlistDao.updateEpgUrls(playlistUrl) { existing ->
+            if (epgUrl in existing) existing else existing + epgUrl
+        }
     }
 }

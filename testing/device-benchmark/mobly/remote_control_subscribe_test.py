@@ -369,7 +369,12 @@ def dump_window(serial):
     shell(serial, "uiautomator", "dump", "/data/local/tmp/window.xml")
     time.sleep(0.25)
     result = shell(serial, "cat", "/data/local/tmp/window.xml")
-    return ET.fromstring(result.stdout)
+    xml = result.stdout
+    # uiautomator dumps never contain DTD declarations; reject them to block
+    # entity-expansion payloads from a compromised device under test.
+    if "<!DOCTYPE" in xml or "<!ENTITY" in xml:
+        raise AssertionError("Unexpected DOCTYPE/ENTITY declarations in uiautomator dump")
+    return ET.fromstring(xml)
 
 
 def find_node(root, text, package=None, content_desc_only=False):

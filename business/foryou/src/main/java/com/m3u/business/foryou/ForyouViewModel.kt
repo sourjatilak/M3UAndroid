@@ -12,6 +12,7 @@ import com.m3u.core.foundation.wrapper.Resource
 import com.m3u.core.foundation.wrapper.mapResource
 import com.m3u.core.foundation.wrapper.resource
 import com.m3u.data.database.model.Channel
+import com.m3u.data.database.model.DataSource
 import com.m3u.data.database.model.Playlist
 import com.m3u.data.parser.xtream.XtreamEpisodeInfo
 import com.m3u.data.repository.channel.ChannelRepository
@@ -63,7 +64,12 @@ class ForyouViewModel @Inject constructor(
         )
             .combine(playlistRepository.observePlaylistUrls()) { infos, playlistUrls ->
                 infos
-                    .filter { info -> SubscriptionWorker.TAG in info.tags }
+                    .filter { info ->
+                        SubscriptionWorker.TAG in info.tags &&
+                                // Exclude EPG workers — they refresh programme data,
+                                // not the channel list, so they shouldn't show the loader.
+                                DataSource.EPG.value !in info.tags
+                    }
                     .mapNotNull { info -> info.tags.find { it in playlistUrls } }
             }
             .stateIn(

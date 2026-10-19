@@ -10,7 +10,9 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map as pagingMap
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.WorkQuery
 import com.m3u.business.playlist.ChannelWithProgramme
 import com.m3u.data.api.TvApiDelegate
 import com.m3u.data.repository.channel.ChannelRepository
@@ -85,6 +87,24 @@ class AppViewModel @Inject constructor(
         )
 
     var searchQuery = mutableStateOf("")
+
+    val debugWorkerInfos: StateFlow<List<String>> = workManager
+        .getWorkInfosFlow(WorkQuery.fromStates(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED))
+        .map { infos ->
+            infos
+                .filter { SubscriptionWorker.TAG in it.tags }
+                .map { info ->
+                    val state = when (info.state) {
+                        WorkInfo.State.RUNNING -> "RUNNING"
+                        WorkInfo.State.ENQUEUED -> "ENQUEUED"
+                        else -> info.state.name
+                    }
+                    val urls = info.tags.filter { it.startsWith("http") }
+                    "[$state] ${urls.joinToString(", ") { it.take(60) }}"
+                }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), emptyList())
+
     private fun refreshProgrammes() {
         viewModelScope.launch {
             val playlists = playlistRepository.getAllAutoRefresh()
