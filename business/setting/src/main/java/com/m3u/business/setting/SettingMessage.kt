@@ -40,16 +40,46 @@ sealed class SettingMessage(
         resId = string.feat_setting_error_unselected_file
     )
 
+    data object FileAccessFailed : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_playlist_file_access_failed,
+    )
+
     data object Enqueued : SettingMessage(
         level = LEVEL_INFO,
         type = TYPE_SNACK,
         resId = string.feat_setting_enqueue_subscribe
     )
 
+    data object ProviderCredentialsRequired : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_provider_credentials_required
+    )
+
+    data object ProviderAdded : SettingMessage(
+        level = LEVEL_INFO,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_provider_added
+    )
+
+    data object ProviderSubscriptionFailed : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_provider_subscription_failed
+    )
+
     data object EpgAdded : SettingMessage(
         level = LEVEL_INFO,
         type = TYPE_SNACK,
         resId = string.feat_setting_epg_added
+    )
+
+    data object PlaylistOperationFailed : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.ui_error_unknown,
     )
 
     data object RemoteTvNotConnected : SettingMessage(
@@ -80,5 +110,17 @@ sealed class SettingMessage(
         level = LEVEL_INFO,
         type = TYPE_SNACK,
         resId = string.feat_setting_restoring
+    )
+
+    data object ExtensionDataCleared : SettingMessage(
+        level = LEVEL_INFO,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_extension_data_cleared,
+    )
+
+    data object ExtensionOperationFailed : SettingMessage(
+        level = LEVEL_ERROR,
+        type = TYPE_SNACK,
+        resId = string.feat_setting_extension_operation_failed,
     )
 }

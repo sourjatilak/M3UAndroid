@@ -1,5 +1,6 @@
 package com.m3u.tv
 
+import android.content.Intent
 import android.view.KeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -23,10 +24,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,12 +46,10 @@ import androidx.tv.material3.Text
 import com.m3u.business.setting.PresetImportViewModel
 import com.m3u.core.foundation.components.CircularProgressIndicator
 import com.m3u.data.tv.model.keyCode
-import com.m3u.tv.screens.profile.AccountsSectionDialogButton
-import com.m3u.tv.theme.JetStreamCardShape
+import com.m3u.i18n.R.string
 
 @Composable
 fun App(
-    onBackPressed: () -> Unit,
     viewModel: TvHomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -52,6 +59,10 @@ fun App(
     val playbackState by viewModel.playbackState.collectAsStateWithLifecycle()
     val remoteControlCode by viewModel.remoteControlCode.collectAsStateWithLifecycle()
     val view = LocalView.current
+    val localeTag = LocalConfiguration.current.locales[0].toLanguageTag()
+    val context = LocalContext.current
+    val diagnosticsShareTitle = stringResource(string.feat_setting_extension_diagnostics_share_title)
+    val currentDiagnosticsShareTitle by rememberUpdatedState(diagnosticsShareTitle)
     var destination by remember { mutableStateOf(TvDestination.Home) }
     var surface by remember { mutableStateOf(TvSurface.Browse) }
     val closePlayer = {
@@ -59,60 +70,17 @@ fun App(
         surface = TvSurface.Browse
     }
 
-    // Preset import dialog
-    val presetVm: PresetImportViewModel = hiltViewModel()
-    val showPresetDialog by presetVm.showDialog.collectAsState()
-    val isImporting by presetVm.importing.collectAsState()
-    val statusText by presetVm.statusText.collectAsState()
-    var dismissed by remember { mutableStateOf(false) }
-
-    LaunchedEffect(showPresetDialog) {
-        if (showPresetDialog) presetVm.importAll()
-    }
-
-    StandardDialog(
-        showDialog = showPresetDialog && !dismissed,
-        onDismissRequest = { dismissed = true },
-        confirmButton = {},
-        dismissButton = {
-            AccountsSectionDialogButton(
-                text = "Close",
-                shouldRequestFocus = true,
-                onClick = { dismissed = true }
-            )
-        },
-        title = {
-            Text(
-                text = "Loading Playlists",
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.surface,
-                style = MaterialTheme.typography.headlineSmall
-            )
-        },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 8.dp)
-            ) {
-                if (isImporting) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-                Text(
-                    text = statusText,
-                    color = MaterialTheme.colorScheme.surface,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        },
-        containerColor = MaterialTheme.colorScheme.onSurface,
-        shape = JetStreamCardShape
+    val backTarget = tvAppBackTarget(
+        playerVisible = surface == TvSurface.Player,
+        providerSubscriptionVisible = state.providerSubscriptionForm != null,
+        extensionSettingsVisible = state.extensionSettings != null,
     )
-
-    BackHandler {
-        if (surface == TvSurface.Player) {
-            closePlayer()
-        } else {
-            onBackPressed()
+    BackHandler(enabled = backTarget != TvAppBackTarget.ACTIVITY) {
+        when (backTarget) {
+            TvAppBackTarget.PLAYER -> closePlayer()
+            TvAppBackTarget.PROVIDER_SUBSCRIPTION -> viewModel.closeProviderSubscription()
+            TvAppBackTarget.EXTENSION_SETTINGS -> viewModel.closeExtensionSettings()
+            TvAppBackTarget.ACTIVITY -> Unit
         }
     }
 
@@ -120,6 +88,22 @@ fun App(
         viewModel.remoteDirections.collect { direction ->
             view.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, direction.keyCode))
             view.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, direction.keyCode))
+        }
+    }
+    LaunchedEffect(viewModel, localeTag) {
+        viewModel.updateLocale(localeTag)
+    }
+    LaunchedEffect(viewModel, context) {
+        viewModel.extensionDiagnostics.collect { payload ->
+            context.startActivity(
+                Intent.createChooser(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_TEXT, payload)
+                    },
+                    currentDiagnosticsShareTitle,
+                )
+            )
         }
     }
 
@@ -151,7 +135,35 @@ fun App(
                 onPlayRecent = {
                     viewModel.playRecent()
                     surface = TvSurface.Player
-                }
+                },
+                onExternalExtensionsEnabled = viewModel::setExternalExtensionsEnabled,
+                onEnableExtension = viewModel::enableExtensionPlugin,
+                onReauthorizeExtension = viewModel::reauthorizeExtensionPlugin,
+                onDisableExtension = viewModel::disableExtensionPlugin,
+                onRevokeExtension = viewModel::revokeExtensionPlugin,
+                onClearExtensionData = viewModel::clearExtensionData,
+                onExportExtensionDiagnostics = viewModel::exportExtensionDiagnostics,
+                onOpenExtensionSettings = { extensionId ->
+                    viewModel.openExtensionSettings(extensionId, localeTag)
+                },
+                onCloseExtensionSettings = viewModel::closeExtensionSettings,
+                onUpdateExtensionSetting = { sectionId, fieldKey, editToken, value ->
+                    viewModel.updateExtensionSetting(
+                        sectionId,
+                        fieldKey,
+                        editToken,
+                        value,
+                        localeTag,
+                    )
+                },
+                onRefreshProviders = viewModel::refreshSubscriptionProviders,
+                onOpenProviderSubscription = viewModel::openProviderSubscription,
+                onReauthenticateProvider = viewModel::reauthenticateProviderAccount,
+                onCloseProviderSubscription = viewModel::closeProviderSubscription,
+                onUpdateProviderTitle = viewModel::updateProviderSubscriptionTitle,
+                onSelectProviderKind = viewModel::selectProviderKind,
+                onUpdateProviderSetting = viewModel::updateProviderSetting,
+                onSubmitProviderSubscription = viewModel::submitProviderSubscription,
             )
         }
 
@@ -172,8 +184,12 @@ fun App(
         }
 
         remoteControlCode?.let { code ->
+            val displayCode = code.toString().padStart(6, '0')
+            val spokenCode = displayCode.toCharArray().joinToString(separator = " ")
+            val pairingCodeDescription =
+                stringResource(string.ui_remote_control_pairing_code, spokenCode)
             Text(
-                text = code.toString().padStart(6, '0'),
+                text = displayCode,
                 color = TvColors.TextPrimary,
                 fontFamily = TvFonts.Body,
                 fontSize = 28.sp,
@@ -183,6 +199,10 @@ fun App(
                     .padding(24.dp)
                     .background(TvColors.Surface.copy(alpha = 0.86f), RoundedCornerShape(8.dp))
                     .padding(horizontal = 18.dp, vertical = 10.dp)
+                    .clearAndSetSemantics {
+                        contentDescription = pairingCodeDescription
+                        liveRegion = LiveRegionMode.Polite
+                    }
             )
         }
     }

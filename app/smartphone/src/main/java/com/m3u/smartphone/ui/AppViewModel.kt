@@ -9,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.filter
+import androidx.paging.insertHeaderItem
 import androidx.paging.map as pagingMap
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
@@ -16,6 +19,7 @@ import androidx.work.WorkQuery
 import com.m3u.business.playlist.ChannelWithProgramme
 import com.m3u.data.api.TvApiDelegate
 import com.m3u.data.repository.channel.ChannelRepository
+import com.m3u.data.repository.extension.ExtensionContributionRepository
 import com.m3u.data.repository.playlist.PlaylistRepository
 import com.m3u.data.repository.tv.ConnectionToTvValue
 import com.m3u.data.repository.tv.TvRepository
@@ -24,13 +28,19 @@ import com.m3u.data.tv.model.TvInfo
 import com.m3u.data.worker.SubscriptionWorker
 import com.m3u.smartphone.ui.common.connect.RemoteControlSheetValue
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -40,17 +50,27 @@ import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
+@OptIn(FlowPreview::class)
 class AppViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val channelRepository: ChannelRepository,
+    private val extensionContributionRepository: ExtensionContributionRepository,
     private val workManager: WorkManager,
     private val tvRepository: TvRepository,
     private val tvApi: TvApiDelegate,
 ) : ViewModel() {
-    val channels: Flow<PagingData<ChannelWithProgramme>> = snapshotFlow { searchQuery.value }
+    var searchQuery = mutableStateOf("")
+
+    private val searchQueries = snapshotFlow { searchQuery.value }
+        .map(String::trim)
+        .debounce(SEARCH_DEBOUNCE_MILLIS)
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, "")
+
+    private val localSearchResults: Flow<PagingData<ChannelWithProgramme>> = searchQueries
         .flatMapLatest { query ->
             if (query.isBlank()) {
-                emptyFlow()
+                flowOf(PagingData.empty())
             } else {
                 Pager(
                     config = PagingConfig(
@@ -71,6 +91,48 @@ class AppViewModel @Inject constructor(
                     }
             }
         }
+        // Cache before the combine below, not after.
+        //
+        // A PagingData straight out of a Pager can only ever be collected once.
+        // combine re-emits the latest value of every source whenever any single
+        // one of them changes, and extensionSearchResults always emits twice per
+        // query — an empty placeholder, then the actual results. That hands the
+        // same PagingData downstream a second time, and Paging throws:
+        //
+        //   IllegalStateException: Attempt to collect twice from pageEventFlow
+        //
+        // The crash killed the process on the first keystroke, which is why
+        // searching looked like it simply returned nothing.
+        //
+        // cachedIn turns the stream into a multicast one that tolerates being
+        // collected again; the filter and insertHeaderItem below are re-applied
+        // on each collection, which is exactly what we want.
+        .cachedIn(viewModelScope)
+
+    private val extensionSearchResults = searchQueries
+        .mapLatestSearchResults { query ->
+            val contributions = extensionContributionRepository.search(query, SEARCH_RESULT_LIMIT)
+            contributions
+                .map { contribution -> contribution.channel }
+                .distinctBy { channel -> channel.id }
+        }
+        .flowOn(Dispatchers.IO)
+
+    val channels: Flow<PagingData<ChannelWithProgramme>> = combine(
+        searchQueries,
+        localSearchResults,
+        extensionSearchResults,
+    ) { query, local, extensionResults ->
+        val promotedChannels = extensionResults.itemsFor(query)
+        val promotedIds = promotedChannels.mapTo(mutableSetOf()) { channel -> channel.id }
+        promotedChannels.asReversed().fold(
+            local.filter { item -> item.channel.id !in promotedIds }
+        ) { paging, channel ->
+            paging.insertHeaderItem(
+                item = ChannelWithProgramme(channel = channel, programme = null)
+            )
+        }
+    }
 
     /**
      * Emits true when at least one favorite channel exists. Drives the visibility
@@ -85,8 +147,6 @@ class AppViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000L),
             initialValue = false
         )
-
-    var searchQuery = mutableStateOf("")
 
     val debugWorkerInfos: StateFlow<List<String>> = workManager
         .getWorkInfosFlow(WorkQuery.fromStates(WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED))
@@ -172,4 +232,28 @@ class AppViewModel @Inject constructor(
         timber.d("remote direction: $direction")
         viewModelScope.launch { tvApi.remoteDirection(direction.value) }
     }
+
+    private companion object {
+        const val SEARCH_DEBOUNCE_MILLIS = 300L
+        const val SEARCH_RESULT_LIMIT = 50
+    }
 }
+
+internal fun <T> Flow<String>.mapLatestSearchResults(
+    search: suspend (query: String) -> List<T>,
+): Flow<QuerySearchResults<T>> = flatMapLatest { query ->
+    flow {
+        emit(QuerySearchResults(query, emptyList()))
+        if (query.isNotBlank()) {
+            emit(QuerySearchResults(query, search(query)))
+        }
+    }
+}
+
+internal data class QuerySearchResults<T>(
+    val query: String,
+    val items: List<T>,
+)
+
+internal fun <T> QuerySearchResults<T>.itemsFor(query: String): List<T> =
+    items.takeIf { this.query == query }.orEmpty()

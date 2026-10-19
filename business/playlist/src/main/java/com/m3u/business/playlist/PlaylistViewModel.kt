@@ -40,11 +40,13 @@ import com.m3u.data.parser.xtream.XtreamEpisodeInfo
 import com.m3u.data.repository.channel.ChannelRepository
 import com.m3u.data.repository.media.MediaRepository
 import com.m3u.data.repository.playlist.PlaylistRepository
+import com.m3u.data.repository.playlist.PlaylistRefreshReason
 import com.m3u.data.repository.programme.ProgrammeRepository
 import com.m3u.data.service.MediaCommand
 import com.m3u.data.service.Messager
 import com.m3u.data.service.PlayerManager
 import com.m3u.data.worker.SubscriptionWorker
+import com.m3u.data.worker.playlistWorkTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -127,11 +129,16 @@ class PlaylistViewModel @Inject constructor(
                 WorkInfo.State.ENQUEUED,
             )
         )
-        .combine(playlistUrl) { infos, playlistUrl ->
+        .combine(playlist) { infos, playlist ->
+            val playlistUrl = playlist?.url ?: return@combine false
+            val workTag = playlistWorkTag(playlistUrl)
             infos.any { info ->
-                info.tags.containsAll(
-                    listOf(SubscriptionWorker.TAG, playlistUrl)
-                )
+                SubscriptionWorker.TAG in info.tags &&
+                    (
+                        workTag in info.tags ||
+                            // Compatibility with work enqueued before hashed tags shipped.
+                            playlistUrl in info.tags
+                        )
             }
         }
         .flowOn(Dispatchers.Default)
@@ -141,10 +148,17 @@ class PlaylistViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000)
         )
 
-    fun refresh(force: Boolean = false) {
+    fun refresh(background: Boolean = false) {
         val url = playlistUrl.value
         viewModelScope.launch {
-            playlistRepository.refresh(url, force)
+            playlistRepository.refresh(
+                url = url,
+                reason = if (background) {
+                    PlaylistRefreshReason.BACKGROUND
+                } else {
+                    PlaylistRefreshReason.USER
+                },
+            )
         }
     }
 

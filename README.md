@@ -42,6 +42,11 @@
 - 🛡️ **Player Memory Leak Fix** — Resolved a ComposeView leak in PlayerActivity during Picture-in-Picture re-attach cycles
 - 📭 **Empty State Messages** — Friendly prompts on For You and Favorite tabs when empty
 
+## Extensions
+
+- [Extension documentation (English)](docs/extensions/README.md)
+- [插件文档（简体中文）](docs/extensions/README.zh-CN.md)
+
 ## 📸 Screenshots
 
 ### Mobile Experience

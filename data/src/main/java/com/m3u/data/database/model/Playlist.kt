@@ -87,11 +87,19 @@ val Playlist.isSeries: Boolean get() = type in Playlist.SERIES_TYPES
 val Playlist.isVod: Boolean get() = type in Playlist.VOD_TYPES
 
 val Playlist.refreshable: Boolean
-    get() = source == DataSource.M3U && url != Playlist.URL_IMPORTED && !url.startsWithAny(
-        "file://",
-        "content://",
-        ignoreCase = true
-    )
+    get() = when (source) {
+        DataSource.M3U -> url != Playlist.URL_IMPORTED && !url.startsWithAny(
+            "file://",
+            "content://",
+            ignoreCase = true
+        )
+
+        DataSource.Xtream,
+        DataSource.Emby,
+        DataSource.Jellyfin,
+        DataSource.Provider -> true
+        else -> false
+    }
 
 
 val Playlist.type: String?
@@ -145,7 +153,11 @@ sealed class DataSource(
         const val TYPE_SERIES = "series"
     }
 
-    object Emby : DataSource(R.string.feat_setting_data_source_emby, "emby")
+    object Emby : DataSource(R.string.feat_setting_data_source_emby, "emby", true)
+
+    object Jellyfin : DataSource(R.string.feat_setting_data_source_jellyfin, "jellyfin", true)
+
+    object Provider : DataSource(R.string.feat_setting_data_source_provider, "provider", true)
 
     object Dropbox : DataSource(R.string.feat_setting_data_source_dropbox, "dropbox")
 
@@ -157,6 +169,8 @@ sealed class DataSource(
             "epg" -> EPG
             "xtream" -> Xtream
             "emby" -> Emby
+            "jellyfin" -> Jellyfin
+            "provider" -> Provider
             "dropbox" -> Dropbox
             else -> throw UnsupportedOperationException()
         }

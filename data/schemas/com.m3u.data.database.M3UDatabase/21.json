@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 21,
-    "identityHash": "051b2df734197aad2f17430836b5fa70",
+    "identityHash": "5b8119cd75db08f2f5e9850847f35edc",
     "entities": [
       {
         "tableName": "playlists",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`title` TEXT NOT NULL, `url` TEXT NOT NULL, `pinned_groups` TEXT NOT NULL DEFAULT '[]', `hidden_groups` TEXT NOT NULL DEFAULT '[]', `source` TEXT NOT NULL DEFAULT '0', `user_agent` TEXT DEFAULT NULL, `epg_urls` TEXT NOT NULL DEFAULT '[]', `auto_refresh_programmes` INTEGER NOT NULL DEFAULT 0, `display_title` TEXT DEFAULT NULL, PRIMARY KEY(`url`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`title` TEXT NOT NULL, `url` TEXT NOT NULL, `pinned_groups` TEXT NOT NULL DEFAULT '[]', `hidden_groups` TEXT NOT NULL DEFAULT '[]', `source` TEXT NOT NULL DEFAULT '0', `user_agent` TEXT DEFAULT NULL, `epg_urls` TEXT NOT NULL DEFAULT '[]', `auto_refresh_programmes` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`url`))",
         "fields": [
           {
             "fieldPath": "title",
@@ -45,6 +45,7 @@
             "fieldPath": "userAgent",
             "columnName": "user_agent",
             "affinity": "TEXT",
+            "notNull": false,
             "defaultValue": "NULL"
           },
           {
@@ -60,12 +61,6 @@
             "affinity": "INTEGER",
             "notNull": true,
             "defaultValue": "0"
-          },
-          {
-            "fieldPath": "displayTitle",
-            "columnName": "display_title",
-            "affinity": "TEXT",
-            "defaultValue": "NULL"
           }
         ],
         "primaryKey": {
@@ -73,7 +68,9 @@
           "columnNames": [
             "url"
           ]
-        }
+        },
+        "indices": [],
+        "foreignKeys": []
       },
       {
         "tableName": "streams",
@@ -100,7 +97,8 @@
           {
             "fieldPath": "cover",
             "columnName": "cover",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": false
           },
           {
             "fieldPath": "playlistUrl",
@@ -112,12 +110,14 @@
             "fieldPath": "licenseType",
             "columnName": "license_type",
             "affinity": "TEXT",
+            "notNull": false,
             "defaultValue": "NULL"
           },
           {
             "fieldPath": "licenseKey",
             "columnName": "license_key",
             "affinity": "TEXT",
+            "notNull": false,
             "defaultValue": "NULL"
           },
           {
@@ -150,6 +150,7 @@
             "fieldPath": "relationId",
             "columnName": "relation_id",
             "affinity": "TEXT",
+            "notNull": false,
             "defaultValue": "NULL"
           }
         ],
@@ -178,7 +179,8 @@
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_streams_favourite` ON `${TABLE_NAME}` (`favourite`)"
           }
-        ]
+        ],
+        "foreignKeys": []
       },
       {
         "tableName": "programmes",
@@ -223,7 +225,8 @@
           {
             "fieldPath": "icon",
             "columnName": "icon",
-            "affinity": "TEXT"
+            "affinity": "TEXT",
+            "notNull": false
           },
           {
             "fieldPath": "categories",
@@ -246,15 +249,19 @@
         },
         "indices": [
           {
-            "name": "index_programmes_epg_url",
+            "name": "index_programmes_epg_url_relation_id_start_end",
             "unique": false,
             "columnNames": [
-              "epg_url"
+              "epg_url",
+              "relation_id",
+              "start",
+              "end"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_programmes_epg_url` ON `${TABLE_NAME}` (`epg_url`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_programmes_epg_url_relation_id_start_end` ON `${TABLE_NAME}` (`epg_url`, `relation_id`, `start`, `end`)"
           }
-        ]
+        ],
+        "foreignKeys": []
       },
       {
         "tableName": "episodes",
@@ -302,7 +309,9 @@
           "columnNames": [
             "id"
           ]
-        }
+        },
+        "indices": [],
+        "foreignKeys": []
       },
       {
         "tableName": "color_pack",
@@ -333,12 +342,15 @@
             "argb",
             "dark"
           ]
-        }
+        },
+        "indices": [],
+        "foreignKeys": []
       }
     ],
+    "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '051b2df734197aad2f17430836b5fa70')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5b8119cd75db08f2f5e9850847f35edc')"
     ]
   }
 }

@@ -126,6 +126,7 @@ fun ChannelMask(
     maskState: MaskState,
     favourite: Boolean,
     isSeriesPlaylist: Boolean,
+    supportsDirectSharing: Boolean,
     isPanelExpanded: Boolean,
     useVertical: Boolean,
     hasTrack: Boolean,
@@ -320,17 +321,21 @@ fun ChannelMask(
                     )
                 }
 
-                if (!currentUseVertical) {
-                    MaskButton(
-                        state = maskState,
-                        icon = if (currentIsPanelExpanded) Icons.Rounded.Archive
-                        else Icons.Rounded.Unarchive,
-                        onClick = openOrClosePanel,
-                        contentDescription = stringResource(string.feat_channel_tooltip_open_panel)
+                MaskButton(
+                    state = maskState,
+                    icon = if (currentIsPanelExpanded) Icons.Rounded.Archive
+                    else Icons.Rounded.Unarchive,
+                    onClick = openOrClosePanel,
+                    contentDescription = stringResource(
+                        if (currentIsPanelExpanded) {
+                            string.ui_action_close_player_panel
+                        } else {
+                            string.ui_action_open_player_panel
+                        }
                     )
-                }
+                )
 
-                if (screencast) {
+                if (screencast && supportsDirectSharing) {
                     MaskButton(
                         state = maskState,
                         icon = Icons.Rounded.Cast,
@@ -495,7 +500,7 @@ fun ChannelMask(
                     )
                     Column(Modifier.alpha(alpha)) {
                         Text(
-                            text = playlistTitle.trim().uppercase(),
+                            text = playlistTitle.trim(),
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
                             color = LocalContentColor.current.copy(0.54f),
@@ -522,7 +527,7 @@ fun ChannelMask(
                     }
                     if (playStateDisplayText.isNotEmpty()) {
                         Text(
-                            text = playStateDisplayText.uppercase(),
+                            text = playStateDisplayText,
                             style = MaterialTheme.typography.bodyMedium,
                             color = LocalContentColor.current.copy(alpha = 0.75f),
                             maxLines = 1,
@@ -725,6 +730,14 @@ private fun MaskCenterButton(
                 MaskCenterRole.Pause -> Icons.Rounded.Pause
                 else -> Icons.Rounded.Refresh
             },
+            contentDescription = stringResource(
+                when (centerRole) {
+                    MaskCenterRole.Replay -> string.ui_action_retry
+                    MaskCenterRole.Play -> string.ui_action_play
+                    MaskCenterRole.Pause -> string.ui_action_pause
+                    MaskCenterRole.Loading -> string.ui_state_loading
+                }
+            ),
             onClick = when (centerRole) {
                 MaskCenterRole.Replay -> onRetry
                 MaskCenterRole.Play -> onPlay
@@ -732,7 +745,8 @@ private fun MaskCenterButton(
                 else -> {
                     {}
                 }
-            }
+            },
+            enabled = centerRole != MaskCenterRole.Loading,
         )
     }
 }
@@ -764,8 +778,15 @@ private fun MaskNavigateButton(
                 MaskNavigateRole.Next -> Icons.Rounded.SkipNext
                 MaskNavigateRole.Previous -> Icons.Rounded.SkipPrevious
             },
+            contentDescription = stringResource(
+                when (navigateRole) {
+                    MaskNavigateRole.Next -> string.ui_action_next_channel
+                    MaskNavigateRole.Previous -> string.ui_action_previous_channel
+                }
+            ),
             interactionSource = interactionSource,
             onClick = onClick,
+            enabled = enabled,
             modifier = Modifier
                 .thenIf(!enabled) { Modifier.alpha(0f) }
                 .graphicsLayer {
@@ -832,6 +853,12 @@ private fun MaskSeekButton(
                 MaskSeekRole.Rewind -> Icons.Rounded.Replay10
                 MaskSeekRole.Forward -> Icons.Rounded.Forward10
             },
+            contentDescription = stringResource(
+                when (seekRole) {
+                    MaskSeekRole.Rewind -> string.feat_channel_tooltip_seek_rewind
+                    MaskSeekRole.Forward -> string.feat_channel_tooltip_seek_forward
+                }
+            ),
             interactionSource = interactionSource,
             onClick = onClick,
             modifier = Modifier.graphicsLayer {

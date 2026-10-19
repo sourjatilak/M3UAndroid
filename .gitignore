@@ -26,3 +26,6 @@ __pycache__/
 *.pyc
 testing/mock-server/bin/
 RUN.md
+testing/mock-server/build/
+testing/extension-reference/build/
+samples/*/build/

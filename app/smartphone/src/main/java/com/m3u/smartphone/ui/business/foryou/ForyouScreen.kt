@@ -65,6 +65,7 @@ fun ForyouRoute(
     val coroutineScope = rememberCoroutineScope()
 
     val title = stringResource(string.ui_title_foryou)
+    val addContentDescription = stringResource(string.ui_action_add)
 
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val specs by viewModel.specs.collectAsStateWithLifecycle()
@@ -81,7 +82,7 @@ fun ForyouRoute(
         Metadata.actions = listOf(
             Action(
                 icon = Icons.Rounded.Add,
-                contentDescription = "add",
+                contentDescription = addContentDescription,
                 onClick = navigateToSettingPlaylistManagement
             )
         )

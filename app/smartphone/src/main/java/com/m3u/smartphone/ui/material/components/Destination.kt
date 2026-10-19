@@ -17,6 +17,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.m3u.i18n.R.string
 import kotlinx.parcelize.Parcelize
+import java.util.UUID
 
 @Immutable
 enum class Destination(
@@ -69,6 +70,63 @@ sealed interface SettingDestination : Parcelable {
     @Immutable
     @Parcelize
     data object Playlists : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data class PlaylistConfiguration(
+        val playlistReference: String,
+    ) : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data object PlaylistSourcePicker : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data class PlaylistEditor(
+        val sourceKey: String,
+        val draftKey: String = UUID.randomUUID().toString(),
+        val providerId: String? = null,
+        val providerKind: String? = null,
+        val reauthenticationPlaylistUrl: String? = null,
+    ) : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data object PlaylistEpgSources : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data object PlaylistHiddenChannels : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data object PlaylistHiddenCategories : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data object ExtensionPlugins : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data class ExtensionPluginDetails(
+        val packageName: String,
+        val serviceName: String,
+    ) : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data class ExtensionPluginAuthorization(
+        val packageName: String,
+        val serviceName: String,
+        val reauthorize: Boolean,
+    ) : SettingDestination
+
+    @Immutable
+    @Parcelize
+    data class ExtensionPluginSettings(
+        val extensionId: String,
+    ) : SettingDestination
 
     @Immutable
     @Parcelize

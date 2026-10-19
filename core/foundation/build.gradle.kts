@@ -1,6 +1,5 @@
 plugins {
     alias(libs.plugins.com.android.library)
-    alias(libs.plugins.org.jetbrains.kotlin.android)
     alias(libs.plugins.org.jetbrains.kotlin.serialization)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.com.google.devtools.ksp)
@@ -15,7 +14,7 @@ dependencies {
     api(project(":i18n"))
 
     // compose
-    implementation(platform(libs.androidx.compose.bom))
+    api(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.foundation.layout)
     implementation(libs.androidx.compose.material.icons.extended)
@@ -33,4 +32,6 @@ dependencies {
     api(libs.androidx.paging.compose)
     api(libs.timber)
     api("androidx.datastore:datastore-preferences:1.1.7")
+
+    testImplementation(kotlin("test-junit"))
 }

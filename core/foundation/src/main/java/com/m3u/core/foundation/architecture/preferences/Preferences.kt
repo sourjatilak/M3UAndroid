@@ -1,4 +1,4 @@
-@file:Suppress("INVISIBLE_REFERENCE", "UNCHECKED_CAST")
+@file:Suppress("UNCHECKED_CAST")
 @file:OptIn(ExperimentalAtomicApi::class)
 
 package com.m3u.core.foundation.architecture.preferences
@@ -18,11 +18,14 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -39,8 +42,8 @@ private val settingsDataStore: ReadOnlyProperty<Context, Settings> =
         private var instance: Settings? = null
         override fun getValue(
             thisRef: Context,
-            ignored: KProperty<*>
-        ): Settings = instance ?: property.getValue(thisRef, ignored).apply {
+            property: KProperty<*>
+        ): Settings = instance ?: this.property.getValue(thisRef, property).apply {
             runBlocking {
                 applyDefaultValues()
             }
@@ -98,43 +101,107 @@ suspend operator fun <T> Settings.set(key: Preferences.Key<T>, value: T) {
     edit { it[key] = value }
 }
 
-private val PREFERENCES: Map<Preferences.Key<*>, *> = listOf(
-    PreferencesKeys.PLAYLIST_STRATEGY to PlaylistStrategy.ALL,
-    PreferencesKeys.ROW_COUNT to 1,
-    PreferencesKeys.CONNECT_TIMEOUT to ConnectTimeout.SHORT,
-    PreferencesKeys.GOD_MODE to false,
-    PreferencesKeys.CLIP_MODE to ClipMode.ADAPTIVE,
-    PreferencesKeys.AUTO_REFRESH_CHANNELS to false,
-    PreferencesKeys.FULL_INFO_PLAYER to false,
-    PreferencesKeys.NO_PICTURE_MODE to false,
-    PreferencesKeys.DARK_MODE to true,
-    PreferencesKeys.USE_DYNAMIC_COLORS to false,
-    PreferencesKeys.FOLLOW_SYSTEM_THEME to false,
-    PreferencesKeys.ZAPPING_MODE to false,
-    PreferencesKeys.BRIGHTNESS_GESTURE to true,
-    PreferencesKeys.VOLUME_GESTURE to true,
-    PreferencesKeys.SCREENCAST to true,
-    PreferencesKeys.SCREEN_ROTATING to false,
-    PreferencesKeys.UNSEENS_MILLISECONDS to UnseensMilliseconds.DAYS_3,
-    PreferencesKeys.RECONNECT_MODE to ReconnectMode.NO,
-    PreferencesKeys.COLOR_ARGB to 0x5E6738,
-    PreferencesKeys.TUNNELING to false,
-    PreferencesKeys.CLOCK_MODE to false,
-    PreferencesKeys.REMOTE_CONTROL to false,
-    PreferencesKeys.SLIDER to true,
-    PreferencesKeys.ALWAYS_SHOW_REPLAY to false,
-    PreferencesKeys.PLAYER_PANEL to true,
-    PreferencesKeys.COMPACT_DIMENSION to false
-)
-    .associateBy { it.key }
-    .mapValues { it.value.value }
+suspend fun Settings.applyThemePreference(theme: ThemePreference) {
+    val normalized = theme.normalized()
+    edit { preferences ->
+        preferences[PreferencesKeys.USE_DYNAMIC_COLORS] = false
+        preferences[PreferencesKeys.COLOR_ARGB] = normalized.argb
+        preferences[PreferencesKeys.DARK_MODE] = normalized.isDark
+        preferences[PreferencesKeys.THEME_STYLE] = normalized.style
+        preferences[PreferencesKeys.THEME_PRESET_ID] = normalized.presetId
+    }
+}
+
+fun Settings.themePreferences(): Flow<ThemePreferencesSnapshot> =
+    data.map { preferences ->
+        val style = preferences[PreferencesKeys.THEME_STYLE]
+            ?: ThemePreference.DEFAULT.style
+        val presetId = preferences[PreferencesKeys.THEME_PRESET_ID]
+            ?: if (style == ThemeStyle.WARM_EDITORIAL) {
+                ThemePreset.WARM_EDITORIAL
+            } else {
+                ThemePreference.DEFAULT.presetId
+            }
+        ThemePreferencesSnapshot(
+            selection = ThemePreference(
+                presetId = presetId,
+                argb = preferences[PreferencesKeys.COLOR_ARGB]
+                    ?: ThemePreference.DEFAULT.argb,
+                isDark = preferences[PreferencesKeys.DARK_MODE]
+                    ?: ThemePreference.DEFAULT.isDark,
+                style = style,
+            ).normalized(),
+            useDynamicColors = preferences[PreferencesKeys.USE_DYNAMIC_COLORS]
+                ?: ThemePreferencesSnapshot.DEFAULT.useDynamicColors,
+            followSystemTheme = preferences[PreferencesKeys.FOLLOW_SYSTEM_THEME]
+                ?: ThemePreferencesSnapshot.DEFAULT.followSystemTheme,
+        )
+    }.distinctUntilChanged()
+
+@Composable
+fun themePreferencesOf(
+    initial: ThemePreferencesSnapshot = ThemePreferencesSnapshot.DEFAULT,
+): State<ThemePreferencesSnapshot> {
+    val dataStore = LocalContext.current.settings
+    return produceState(initial, key1 = dataStore) {
+        dataStore.themePreferences().collect {
+            value = it
+        }
+    }
+}
+
+private val PREFERENCES: Map<Preferences.Key<*>, Any> = buildMap {
+    put(PreferencesKeys.PLAYLIST_STRATEGY, PlaylistStrategy.ALL)
+    put(PreferencesKeys.ROW_COUNT, 1)
+    put(PreferencesKeys.CONNECT_TIMEOUT, ConnectTimeout.SHORT)
+    put(PreferencesKeys.GOD_MODE, false)
+    put(PreferencesKeys.CLIP_MODE, ClipMode.ADAPTIVE)
+    put(PreferencesKeys.AUTO_REFRESH_CHANNELS, false)
+    put(PreferencesKeys.FULL_INFO_PLAYER, false)
+    put(PreferencesKeys.NO_PICTURE_MODE, false)
+    put(PreferencesKeys.DARK_MODE, ThemePreference.DEFAULT.isDark)
+    put(
+        PreferencesKeys.USE_DYNAMIC_COLORS,
+        ThemePreferencesSnapshot.DEFAULT.useDynamicColors,
+    )
+    put(
+        PreferencesKeys.FOLLOW_SYSTEM_THEME,
+        ThemePreferencesSnapshot.DEFAULT.followSystemTheme,
+    )
+    put(PreferencesKeys.ZAPPING_MODE, false)
+    put(PreferencesKeys.BRIGHTNESS_GESTURE, true)
+    put(PreferencesKeys.VOLUME_GESTURE, true)
+    put(PreferencesKeys.SCREENCAST, true)
+    put(PreferencesKeys.SCREEN_ROTATING, false)
+    put(PreferencesKeys.UNSEENS_MILLISECONDS, UnseensMilliseconds.DAYS_3)
+    put(PreferencesKeys.RECONNECT_MODE, ReconnectMode.NO)
+    put(PreferencesKeys.COLOR_ARGB, ThemePreference.DEFAULT.argb)
+    put(PreferencesKeys.THEME_STYLE, ThemePreference.DEFAULT.style)
+    put(PreferencesKeys.THEME_PRESET_ID, ThemePreference.DEFAULT.presetId)
+    put(PreferencesKeys.TUNNELING, false)
+    put(PreferencesKeys.CLOCK_MODE, false)
+    put(PreferencesKeys.REMOTE_CONTROL, false)
+    put(PreferencesKeys.SLIDER, true)
+    put(PreferencesKeys.ALWAYS_SHOW_REPLAY, false)
+    put(PreferencesKeys.PLAYER_PANEL, true)
+    put(PreferencesKeys.COMPACT_DIMENSION, false)
+    put(PreferencesKeys.EXTERNAL_EXTENSIONS, false)
+}
 
 suspend fun Settings.applyDefaultValues() {
     if (applied.compareAndSet(expectedValue = false, newValue = true)) {
         edit { pref ->
             PREFERENCES.forEach { (key, defaultValue) ->
                 if (key !in pref) {
-                    pref.set<Any>(key as Preferences.Key<Any>, defaultValue as Any)
+                    val resolvedDefault = if (
+                        key == PreferencesKeys.THEME_PRESET_ID &&
+                        pref[PreferencesKeys.THEME_STYLE] == ThemeStyle.WARM_EDITORIAL
+                    ) {
+                        ThemePreset.WARM_EDITORIAL
+                    } else {
+                        defaultValue
+                    }
+                    pref.set<Any>(key as Preferences.Key<Any>, resolvedDefault)
                 }
             }
         }
@@ -165,6 +232,8 @@ object PreferencesKeys {
     val UNSEENS_MILLISECONDS = longPreferencesKey("unseens-milliseconds")
     val RECONNECT_MODE = intPreferencesKey("reconnect-mode")
     val COLOR_ARGB = intPreferencesKey("color-argb")
+    val THEME_STYLE = intPreferencesKey("theme-style")
+    val THEME_PRESET_ID = stringPreferencesKey("theme-preset-id")
     val TUNNELING = booleanPreferencesKey("tunneling")
     val CLOCK_MODE = booleanPreferencesKey("12h-clock-mode")
     val REMOTE_CONTROL = booleanPreferencesKey("remote-control")
@@ -174,4 +243,5 @@ object PreferencesKeys {
     val PLAYER_PANEL = booleanPreferencesKey("player_panel")
 
     val COMPACT_DIMENSION = booleanPreferencesKey("compact-dimension")
+    val EXTERNAL_EXTENSIONS = booleanPreferencesKey("external-extensions")
 }

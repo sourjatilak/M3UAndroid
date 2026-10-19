@@ -1,62 +1,35 @@
-# Playbook: Extension System
+# Playbook: Extension system changes
 
 ## When to use this playbook
 
-Use this when the task involves extension APIs, plugin runtime, extension discovery, host/plugin contracts, manifests, AIDL/protobuf contracts, or classloader behavior.
+Use it for extension contracts, runtime policy, built-in extensions such as the Emby/Jellyfin provider, Android plugin transport, host importers, plugin management, or extension conformance tests.
 
-## Required context
+## Canonical documentation
 
-Read these first:
+Read the audience-specific documentation before editing:
 
-- `AGENTS.md`
-- `core/AGENTS.md`
-- Relevant app, business, or data `AGENTS.md` for touched modules
-- Nearby extension API, runtime, manifest, and sample/plugin code
+- Project maintainers: [`docs/extensions/maintainers/README.md`](../../extensions/maintainers/README.md)
+- Change workflow: [`docs/extensions/maintainers/change-guide.md`](../../extensions/maintainers/change-guide.md)
+- Current release status: [`docs/extensions/maintainers/status-and-release.md`](../../extensions/maintainers/status-and-release.md)
+- 项目维护者：[`docs/extensions/maintainers/README.zh-CN.md`](../../extensions/maintainers/README.zh-CN.md)
+- 变更流程：[`docs/extensions/maintainers/change-guide.zh-CN.md`](../../extensions/maintainers/change-guide.zh-CN.md)
+- 当前发布状态：[`docs/extensions/maintainers/status-and-release.zh-CN.md`](../../extensions/maintainers/status-and-release.zh-CN.md)
+- Extension developers: [`docs/extensions/developers/README.md`](../../extensions/developers/README.md)
+- 插件开发者：[`docs/extensions/developers/README.zh-CN.md`](../../extensions/developers/README.zh-CN.md)
 
-## Safe change scope
+The maintainer pages are canonical: architecture, change workflow, and current release gaps live on their respective pages.
 
-The agent may modify:
+## Change workflow
 
-- Extension contract code when compatibility impact is understood
-- Host runtime/adapters that load, validate, or invoke extensions
-- Tests or fixtures that exercise extension metadata and compatibility
+1. Identify the typed hook and its real host call site.
+2. Confirm which module owns the change using the architecture module table.
+3. Keep built-in and Android transports on the same runtime contract and policy path.
+4. Add the host renderer/importer whenever a contract returns declarative data.
+5. Test the smallest affected module, then the cross-process or app path when relevant.
+6. Update the support matrix and both language versions of every affected extension page.
 
-The agent should avoid modifying:
+For contract changes, include golden serialization, schema negotiation, and both transport paths. For phone or TV extension changes, verify the product trigger and visible result on the affected surface.
 
-- Public extension APIs without compatibility notes
-- Host implementation details from extension API modules
-- Classloader, manifest, or IPC assumptions without regression coverage
+## Validation evidence
 
-## Architecture rules
-
-- Keep API/runtime boundaries explicit.
-- Do not leak host implementation dependencies into extension APIs.
-- Treat AIDL/protobuf schemas and manifest metadata as compatibility-sensitive.
-- Keep plugin loading behavior defensive and observable.
-
-## Common mistakes
-
-- Changing a method signature without a migration or compatibility note.
-- Assuming host and plugin share the same classloader dependencies.
-- Treating manifest metadata as always present and valid.
-- Adding app-module dependencies to core extension contracts.
-
-## Validation
-
-Run:
-
-```bash
-./gradlew :core:extension:compileDebugKotlin :app:extension:compileDebugKotlin
-```
-
-Also compile the host app module affected by the runtime change.
-
-If the command is not available or cannot be run, explain why.
-
-## PR notes
-
-The PR should mention:
-
-- API or binary compatibility impact
-- Manifest, classloader, IPC, or dependency boundary risks
-- Validation results for host and extension modules
+Choose the closest API, runtime, SDK, transport, cross-process, provider, importer, or UI evidence from the maintainer [validation table](../../extensions/maintainers/change-guide.md#validation-evidence). External transport changes require the reference extension path; developer-facing SDK changes keep Hello working through its M3UAndroid settings entry.

@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.Icon
+import android.net.Uri
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -22,6 +23,7 @@ import androidx.work.workDataOf
 import com.m3u.data.R
 import com.m3u.data.database.model.DataSource
 import com.m3u.data.parser.xtream.XtreamInput
+import com.m3u.data.repository.playlist.PlaylistDataMaintenanceCoordinator
 import com.m3u.data.repository.playlist.PlaylistRepository
 import com.m3u.data.repository.programme.ProgrammeRepository
 import com.m3u.i18n.R.string
@@ -30,9 +32,10 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.UUID
 
 @HiltWorker
 class SubscriptionWorker @AssistedInject constructor(
@@ -54,6 +57,8 @@ class SubscriptionWorker @AssistedInject constructor(
     private val url = inputData.getString(INPUT_STRING_URL)
     private val epgPlaylistUrl = inputData.getString(INPUT_STRING_EPG_PLAYLIST_URL)
     private val epgIgnoreCache = inputData.getBoolean(INPUT_BOOLEAN_EPG_IGNORE_CACHE, false)
+    private val requireExistingPlaylist =
+        inputData.getBoolean(INPUT_BOOLEAN_REQUIRE_EXISTING_PLAYLIST, false)
     private val notificationId: Int by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         ATOMIC_NOTIFICATION_ID.incrementAndGet()
     }
@@ -70,7 +75,7 @@ class SubscriptionWorker @AssistedInject constructor(
 
                 else -> {
                     createN10nBuilder()
-                        .setContentText(cause.localizedMessage.orEmpty())
+                        .setContentText(context.getString(string.ui_error_unknown))
                         .setActions(retryAction)
                         .setColor(Color.RED)
                         .buildThenNotify()
@@ -79,30 +84,49 @@ class SubscriptionWorker @AssistedInject constructor(
         }
         when (dataSource) {
             DataSource.M3U -> {
-                val title = title ?: return@coroutineScope Result.failure()
                 val url = url ?: return@coroutineScope Result.failure()
-                if (title.isEmpty()) {
-                    val message = context.getString(string.data_error_empty_title)
-                    createN10nBuilder()
-                        .setContentText(message)
-                        .buildThenNotify()
-                    Result.failure()
-                } else {
-                    var total = 0
-                    playlistRepository.m3uOrThrow(title, url) { count ->
-                        total = count
-                        val notification = createN10nBuilder()
-                            .setContentText(findChannelProgressContentText(count))
-                            .setActions(cancelAction)
-                            .setOngoing(true)
-                            .build()
-                        notificationManager.notify(notificationId, notification)
+                PlaylistDataMaintenanceCoordinator.withExclusive {
+                    val existing = if (requireExistingPlaylist) {
+                        playlistRepository.get(url)
+                    } else {
+                        null
                     }
+                    if (requireExistingPlaylist && existing == null) {
+                        return@withExclusive Result.success()
+                    }
+                    try {
+                        val title = existing?.title ?: title
+                        val result = if (title == null) {
+                            Result.failure()
+                        } else if (title.isBlank()) {
+                            val message = context.getString(string.data_error_empty_title)
+                            createN10nBuilder()
+                                .setContentText(message)
+                                .buildThenNotify()
+                            Result.failure()
+                        } else {
+                            var total = 0
+                            playlistRepository.m3uOrThrow(title, url) { count ->
+                                total = count
+                                val notification = createN10nBuilder()
+                                    .setContentText(findChannelProgressContentText(count))
+                                    .setActions(cancelAction)
+                                    .setOngoing(true)
+                                    .build()
+                                notificationManager.notify(notificationId, notification)
+                            }
 
-                    createN10nBuilder()
-                        .setContentText(findCompleteContentText(total))
-                        .buildThenNotify()
-                    Result.success()
+                            createN10nBuilder()
+                                .setContentText(findCompleteContentText(total))
+                                .buildThenNotify()
+                            Result.success()
+                        }
+                        result
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        throw error
+                    }
                 }
             }
 
@@ -121,15 +145,16 @@ class SubscriptionWorker @AssistedInject constructor(
                                 .build()
                             notificationManager.notify(notificationId, notification)
                         }
-                        .launchIn(this)
+                        .collect()
                     Result.success()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (e: Exception) {
                     createN10nBuilder()
-                        .setContentText(e.localizedMessage.orEmpty())
+                        .setContentText(context.getString(string.ui_error_unknown))
                         .setActions(retryAction)
                         .setColor(Color.RED)
                         .buildThenNotify()
-                    e.printStackTrace()
                     Result.failure()
                 }
             }
@@ -139,19 +164,34 @@ class SubscriptionWorker @AssistedInject constructor(
                 basicUrl ?: return@coroutineScope Result.failure()
                 username ?: return@coroutineScope Result.failure()
                 password ?: return@coroutineScope Result.failure()
-                if (title.isEmpty()) {
-                    url ?: return@coroutineScope Result.failure()
-                    val message = context.getString(string.data_error_empty_title)
-                    createN10nBuilder()
-                        .setContentText(message)
-                        .buildThenNotify()
-                    Result.failure()
-                } else {
-                    try {
+                PlaylistDataMaintenanceCoordinator.withExclusive {
+                    val existing = if (requireExistingPlaylist && url != null) {
+                        playlistRepository.get(url)
+                    } else {
+                        null
+                    }
+                    if (requireExistingPlaylist && existing == null) {
+                        return@withExclusive Result.success()
+                    }
+                    val effectiveTitle = existing?.title ?: title
+                    if (
+                        effectiveTitle.isBlank() ||
+                        basicUrl.isBlank() ||
+                        username.isBlank() ||
+                        password.isBlank()
+                    ) {
+                        url ?: return@withExclusive Result.failure()
+                        val message = context.getString(string.data_error_empty_title)
+                        createN10nBuilder()
+                            .setContentText(message)
+                            .buildThenNotify()
+                        Result.failure()
+                    } else {
+                        try {
                         val type = url?.let { XtreamInput.decodeFromPlaylistUrlOrNull(it)?.type }
                         var total = 0
                         playlistRepository.xtreamOrThrow(
-                            title, basicUrl, username, password, type
+                            effectiveTitle, basicUrl, username, password, type
                         ) { count ->
                             total = count
                             val notification = createN10nBuilder()
@@ -164,13 +204,16 @@ class SubscriptionWorker @AssistedInject constructor(
                             .setContentText(findCompleteContentText(total))
                             .buildThenNotify()
                         Result.success()
-                    } catch (e: Exception) {
-                        createN10nBuilder()
-                            .setContentText(e.localizedMessage.orEmpty())
-                            .setActions(retryAction)
-                            .setColor(Color.RED)
-                            .buildThenNotify()
-                        Result.failure()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (e: Exception) {
+                            createN10nBuilder()
+                                .setContentText(context.getString(string.ui_error_unknown))
+                                .setActions(retryAction)
+                                .setColor(Color.RED)
+                                .buildThenNotify()
+                            Result.failure()
+                        }
                     }
                 }
             }
@@ -184,9 +227,12 @@ class SubscriptionWorker @AssistedInject constructor(
 
     private fun createChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID, NOTIFICATION_NAME, NotificationManager.IMPORTANCE_LOW
+            CHANNEL_ID,
+            context.getString(string.data_worker_subscription_notification_channel_name),
+            NotificationManager.IMPORTANCE_LOW
         )
-        channel.description = "display subscribe task progress"
+        channel.description =
+            context.getString(string.data_worker_subscription_notification_channel_description)
         notificationManager.createNotificationChannel(channel)
     }
 
@@ -205,7 +251,8 @@ class SubscriptionWorker @AssistedInject constructor(
             .setSmallIcon(R.drawable.round_file_download_24)
             .setContentTitle(
                 when (dataSource) {
-                    DataSource.EPG -> epgPlaylistUrl
+                    DataSource.EPG ->
+                        context.getString(string.data_worker_subscription_notification_channel_name)
                     else -> title
                 }
             )
@@ -255,11 +302,12 @@ class SubscriptionWorker @AssistedInject constructor(
 
     companion object {
         private const val CHANNEL_ID = "subscribe_channel"
-        private const val NOTIFICATION_NAME = "subscribe task"
         private const val INPUT_STRING_TITLE = "title"
         private const val INPUT_STRING_URL = "url"
         private const val INPUT_STRING_EPG_PLAYLIST_URL = "epg"
         private const val INPUT_BOOLEAN_EPG_IGNORE_CACHE = "ignore_cache"
+        private const val INPUT_BOOLEAN_REQUIRE_EXISTING_PLAYLIST =
+            "require-existing-playlist"
         private const val INPUT_STRING_BASIC_URL = "basic_url"
         private const val INPUT_STRING_USERNAME = "username"
         private const val INPUT_STRING_PASSWORD = "password"
@@ -270,35 +318,68 @@ class SubscriptionWorker @AssistedInject constructor(
             workManager: WorkManager,
             title: String,
             url: String,
-            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
-        ) {
+            requireExistingPlaylist: Boolean = false,
+        ): UUID {
+            val uri = Uri.parse(url)
+            val localSource = url.isLocalM3uSource()
+            val workTag = playlistRefreshWorkTag(DataSource.M3U, url)
+            val permissionTag = persistedUriPermissionTag(uri)
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
                         INPUT_STRING_TITLE to title,
                         INPUT_STRING_URL to url,
+                        INPUT_BOOLEAN_REQUIRE_EXISTING_PLAYLIST to requireExistingPlaylist,
                         INPUT_STRING_DATA_SOURCE_VALUE to DataSource.M3U.value
                     )
                 )
-                .addTag(url)
+                .addTag(workTag)
+                .addTag(playlistWorkTag(url))
                 .addTag(TAG)
                 .addTag(DataSource.M3U.value)
+                .apply {
+                    if (localSource) {
+                        addTag(permissionTag)
+                    }
+                }
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                .setConstraints(
-                    Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.CONNECTED)
-                        .build()
-                )
+                .apply {
+                    if (!localSource) {
+                        setConstraints(
+                            Constraints.Builder()
+                                .setRequiredNetworkType(NetworkType.CONNECTED)
+                                .build()
+                        )
+                    }
+                }
                 .build()
-            workManager.enqueueUniqueWork("m3u:$url", policy, request)
+            if (localSource) {
+                enqueuePersistedUriWork(
+                    workManager = workManager,
+                    permissionTag = permissionTag,
+                ) {
+                    workManager.enqueueUniqueWork(
+                        workTag,
+                        ExistingWorkPolicy.REPLACE,
+                        request,
+                    )
+                }
+            } else {
+                workManager.enqueueUniqueWork(
+                    workTag,
+                    ExistingWorkPolicy.REPLACE,
+                    request,
+                )
+            }
+            return request.id
         }
 
         fun epg(
             workManager: WorkManager,
             playlistUrl: String,
-            ignoreCache: Boolean,
-            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
-        ) {
+            ignoreCache: Boolean
+        ): UUID {
+            val workTag = playlistRefreshWorkTag(DataSource.EPG, playlistUrl)
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
@@ -307,7 +388,8 @@ class SubscriptionWorker @AssistedInject constructor(
                         INPUT_STRING_DATA_SOURCE_VALUE to DataSource.EPG.value,
                     )
                 )
-                .addTag(playlistUrl)
+                .addTag(workTag)
+                .addTag(playlistWorkTag(playlistUrl))
                 .addTag(TAG)
                 .addTag(DataSource.EPG.value)
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
@@ -317,7 +399,12 @@ class SubscriptionWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-            workManager.enqueueUniqueWork("epg:$playlistUrl", policy, request)
+            workManager.enqueueUniqueWork(
+                workTag,
+                ExistingWorkPolicy.REPLACE,
+                request,
+            )
+            return request.id
         }
 
         fun xtream(
@@ -327,8 +414,12 @@ class SubscriptionWorker @AssistedInject constructor(
             basicUrl: String,
             username: String,
             password: String,
-            policy: ExistingWorkPolicy = ExistingWorkPolicy.KEEP
-        ) {
+            requireExistingPlaylist: Boolean = false,
+        ): UUID {
+            val workTag = hashedWorkTag(
+                namespace = "subscription-xtream",
+                value = "$basicUrl\u0000$username",
+            )
             val request = OneTimeWorkRequestBuilder<SubscriptionWorker>()
                 .setInputData(
                     workDataOf(
@@ -337,49 +428,43 @@ class SubscriptionWorker @AssistedInject constructor(
                         INPUT_STRING_BASIC_URL to basicUrl,
                         INPUT_STRING_USERNAME to username,
                         INPUT_STRING_PASSWORD to password,
+                        INPUT_BOOLEAN_REQUIRE_EXISTING_PLAYLIST to requireExistingPlaylist,
                         INPUT_STRING_DATA_SOURCE_VALUE to DataSource.Xtream.value
                     )
                 )
-                .addTag(url)
-                .addTag(basicUrl)
+                .addTag(workTag)
                 .addTag(DataSource.Xtream.value)
                 .apply {
+                    if (url.isNotBlank()) {
+                        addTag(xtreamPlaylistWorkTag(url))
+                        addTag(playlistWorkTag(url))
+                    }
                     val xtreamInput = XtreamInput.decodeFromPlaylistUrlOrNull(url) ?: XtreamInput(
                         basicUrl = basicUrl,
                         username = username,
                         password = password
                     )
                     val type = xtreamInput.type
-                    if (type == null) {
-                        addTag(
+                    val playlistUrls = if (type == null) {
+                        listOf(
+                            DataSource.Xtream.TYPE_LIVE,
+                            DataSource.Xtream.TYPE_SERIES,
+                            DataSource.Xtream.TYPE_VOD,
+                        ).map { playlistType ->
                             XtreamInput.encodeToPlaylistUrl(
-                                xtreamInput.copy(
-                                    type = DataSource.Xtream.TYPE_LIVE
-                                )
+                                xtreamInput.copy(type = playlistType)
                             )
-                        )
-                        addTag(
-                            XtreamInput.encodeToPlaylistUrl(
-                                xtreamInput.copy(
-                                    type = DataSource.Xtream.TYPE_SERIES
-                                )
-                            )
-                        )
-                        addTag(
-                            XtreamInput.encodeToPlaylistUrl(
-                                xtreamInput.copy(
-                                    type = DataSource.Xtream.TYPE_VOD
-                                )
-                            )
-                        )
+                        }
                     } else {
-                        addTag(
+                        listOf(
                             XtreamInput.encodeToPlaylistUrl(
-                                xtreamInput.copy(
-                                    type = type
-                                )
+                                xtreamInput.copy(type = type)
                             )
                         )
+                    }
+                    playlistUrls.forEach { playlistUrl ->
+                        addTag(xtreamPlaylistWorkTag(playlistUrl))
+                        addTag(playlistWorkTag(playlistUrl))
                     }
                 }
                 .addTag(TAG)
@@ -390,9 +475,48 @@ class SubscriptionWorker @AssistedInject constructor(
                         .build()
                 )
                 .build()
-            workManager.enqueueUniqueWork("xtream:$url", policy, request)
+            workManager.enqueueUniqueWork(
+                workTag,
+                ExistingWorkPolicy.REPLACE,
+                request,
+            )
+            return request.id
         }
 
         private val ATOMIC_NOTIFICATION_ID = AtomicInteger()
     }
 }
+
+internal fun String.isLocalM3uSource(): Boolean =
+    startsWith("content:", ignoreCase = true) ||
+        startsWith("file:", ignoreCase = true)
+
+internal fun m3uSubscriptionWorkName(url: String): String =
+    playlistRefreshWorkTag(DataSource.M3U, url)
+
+internal fun epgSubscriptionWorkName(url: String): String =
+    playlistRefreshWorkTag(DataSource.EPG, url)
+
+internal fun xtreamPlaylistWorkTag(url: String): String =
+    playlistRefreshWorkTag(DataSource.Xtream, url)
+
+fun playlistRefreshWorkTag(
+    source: DataSource,
+    url: String,
+): String = when (source) {
+    DataSource.M3U -> hashedWorkTag(namespace = "subscription-m3u", value = url)
+    DataSource.EPG -> hashedWorkTag(namespace = "subscription-epg", value = url)
+    DataSource.Xtream ->
+        hashedWorkTag(namespace = "subscription-xtream-playlist", value = url)
+    DataSource.Emby,
+    DataSource.Jellyfin,
+    DataSource.Provider ->
+        hashedWorkTag(namespace = "provider-refresh", value = url)
+    else -> hashedWorkTag(
+        namespace = "subscription-${source.value}",
+        value = url,
+    )
+}
+
+fun playlistWorkTag(url: String): String =
+    hashedWorkTag(namespace = "playlist-work", value = url)

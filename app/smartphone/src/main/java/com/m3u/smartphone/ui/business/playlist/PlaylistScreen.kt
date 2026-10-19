@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -166,7 +167,7 @@ internal fun PlaylistRoute(
 
     LaunchedEffect(autoRefreshChannels, playlistUrl) {
         if (playlistUrl.isNotEmpty() && autoRefreshChannels) {
-            viewModel.refresh()
+            viewModel.refresh(background = true)
         }
     }
 
@@ -205,7 +206,7 @@ internal fun PlaylistRoute(
             onScrollUp = { viewModel.scrollUp.value = eventOf(Unit) },
             onRefresh = {
                 if (postNotificationPermission == null) {
-                    viewModel.refresh(force = true)
+                    viewModel.refresh()
                 } else {
                     postNotificationPermission.checkPermissionOrRationale(
                         showRationale = {
@@ -219,7 +220,7 @@ internal fun PlaylistRoute(
                             helper.activityContext.startActivity(intent)
                         },
                         block = {
-                            viewModel.refresh(force = true)
+                            viewModel.refresh()
                         }
                     )
                 }
@@ -316,6 +317,8 @@ private fun PlaylistScreen(
     actions: PlaylistScreenActions,
     modifier: Modifier = Modifier
 ) {
+    val sortContentDescription = stringResource(string.ui_sort)
+    val refreshContentDescription = stringResource(string.ui_action_refresh)
     val currentOnScrollUp by rememberUpdatedState(actions.onScrollUp)
     val currentOnRefresh by rememberUpdatedState(actions.onRefresh)
 
@@ -353,13 +356,13 @@ private fun PlaylistScreen(
         Metadata.actions = buildList {
             Action(
                 icon = Icons.AutoMirrored.Rounded.Sort,
-                contentDescription = "sort",
+                contentDescription = sortContentDescription,
                 onClick = { isSortSheetVisible = true }
             ).also { add(it) }
             Action(
                 icon = Icons.Rounded.Refresh,
                 enabled = !state.refreshing,
-                contentDescription = "refresh",
+                contentDescription = refreshContentDescription,
                 onClick = currentOnRefresh
             ).also { add(it) }
         }
@@ -538,7 +541,7 @@ private fun UnsupportedUIModeContent(
         ),
         modifier = modifier.fillMaxSize()
     ) {
-        Text("Unsupported UI Mode: $device")
+        Text(stringResource(string.ui_unsupported_mode, device))
         if (description != null) {
             Text(description)
         }

@@ -34,6 +34,8 @@ fun AppNavHost(
     onCollapseSearch: () -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    showBottomEdgeBlur: Boolean = true,
+    onNestedDetailVisibilityChanged: (Boolean) -> Unit = {},
     startDestination: String = Destination.Foryou.name
 ) {
     val context = LocalContext.current
@@ -64,7 +66,9 @@ fun AppNavHost(
             },
             navigateToPlaylistConfiguration = {
                 navController.navigateToPlaylistConfiguration(it.url)
-            }
+            },
+            showBottomEdgeBlur = showBottomEdgeBlur,
+            onNestedDetailVisibilityChanged = onNestedDetailVisibilityChanged,
         )
         playlistScreen(
             navigateToChannel = {
@@ -84,6 +88,14 @@ fun AppNavHost(
             contentPadding = contentPadding,
             searchQuery = searchQuery
         )
-        playlistConfigurationScreen(contentPadding)
+        playlistConfigurationScreen(
+            contentPadding = contentPadding,
+            onBack = {
+                navController.popBackStack()
+            },
+            onPlaylistRemoved = {
+                navController.popBackStack()
+            },
+        )
     }
 }
